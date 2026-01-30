@@ -16,6 +16,7 @@ Usage:
 
 from lionscliapp import application as appmodel
 from lionscliapp import runtime_state
+from lionscliapp import resolve_execroot
 
 
 def main():
@@ -45,6 +46,9 @@ def main():
 
     # Transition to running
     runtime_state.transition_to_running()
+
+    # Resolve execution root
+    resolve_execroot.resolve_execroot()
 
     try:
         # No actual execution in this minimal version
