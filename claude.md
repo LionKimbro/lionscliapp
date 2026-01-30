@@ -48,6 +48,15 @@ Globals are paired with:
 
 ---
 
+## 1.b. A note on globals use:
+
+When there's a global dictionary, or a global list, in general, it should be manipulated IN-PLACE.
+
+That is, if it contains a dictionary, it should be initialized with {}, and then cleared with D.clear().
+
+If it is a list, it should be initialized with [], and then cleared with del L[:].
+
+
 ## 2. JSON Is the Universal Substrate
 
 This framework treats **JSON as the lingua franca** between:
