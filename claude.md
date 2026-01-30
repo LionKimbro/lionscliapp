@@ -122,28 +122,25 @@ Callable values are allowed *only* where explicitly specified (e.g. command func
 
 ---
 
-### 4. Flags Are Semantic Splitters, Not Arguments
+## 4. Flags Are Semantic Splitters, Not Arguments
 
-In this codebase, **flags are not a workaround** and not a legacy artifact.
-They are a **first-class design tool**.
+In this codebase, **flags are a deliberate design mechanism**, not a workaround or legacy artifact.
 
 Flags are used when:
 
-* A function represents a **high-value action**
-* That action has **multiple concrete realizations**
-* The *verb itself should remain stable*
+* a function represents a high-value action
+* that action has multiple concrete realizations
+* the verb itself should remain stable
 
-Instead of creating many narrowly-named functions, we prefer:
+Instead of creating many narrowly named functions, the preferred structure is:
 
-* **one stable verb**
-* **a small flag vocabulary**
-* **long, explicit internal helpers**
+* one stable verb
+* a small, system-wide flag vocabulary
+* long, explicit internal helpers
 
-#### Why this works
+### Design Rationale
 
-Function calls are never read in isolation.
-
-They are read inside a *story*.
+Function calls are read **in context**, not in isolation.
 
 ```python
 def handle_when_user_clicks_save_button():
@@ -151,10 +148,10 @@ def handle_when_user_clicks_save_button():
     save_text(text, "F")
 ```
 
-The handler name, surrounding logic, and flow already constrain the meaning.
-The flag does not introduce ambiguity — it **confirms intent**.
+The surrounding control flow already constrains meaning.
+The flag disambiguates *how*, not *what*.
 
-Inside the implementation, clarity is expanded, not compressed:
+Internal clarity is expanded inside the function:
 
 ```python
 def save_text(text, flags="F"):
@@ -162,51 +159,46 @@ def save_text(text, flags="F"):
         _save_text_to_file(text)
     elif flags == "N":
         _save_text_to_network(text)
-    elif flags == "D":
-        _save_text_to_dictionary(text)
 ```
 
-This creates a **dual-tier architecture**:
+This produces a dual-tier structure:
 
-* **Simple at call sites**
-* **Explicit inside**
+* simple and readable at call sites
+* explicit and extensible internally
 
-Flags are only effective when:
+Flags work when:
 
-* each flag has one stable meaning system-wide
-* the surrounding context already carries most of the meaning
+* each flag has one stable meaning everywhere in the system
+* context already supplies most semantic weight
 
-Used this way, flags:
-
-* reduce namespace clutter
-* preserve conceptual unity
-* keep call sites readable
-* allow internal structure to grow without API sprawl
+Used this way, flags reduce namespace clutter while preserving intent.
 
 ---
 
-### 5. Function Names Are a Map, Not Labels
+## 5. Function Names Encode Structure
 
-Function naming in this project is **not about descriptiveness alone**.
-It is about giving the codebase **shape, hierarchy, and terrain**.
+Function naming in this project is used to make the **shape of the system visible**.
 
-Names encode:
+Name length and form signal:
 
-* frequency
-* scope
+* frequency of use
+* scope of applicability
 * reuse expectations
 * narrative role
 * boundary crossings
 
-A reader should be able to *scan* a file and immediately see:
+A reader should be able to scan a file and see:
 
-* where the main currents flow
-* where a detour occurs
-* where an external event enters
+* where the main flows are
+* which functions are reusable
+* which are single-use narrative segments
+* where external events enter
+
+---
 
 #### 5.1 Primitives — One Word
 
-Functions called constantly form the **core vocabulary**.
+Functions called extremely frequently form the core vocabulary.
 
 Examples:
 
@@ -220,18 +212,16 @@ flush()
 
 Characteristics:
 
-* extremely high frequency
+* very high frequency
 * minimal conceptual weight
 * meaning refined by context and flags
 * never over-specified
-
-These are the highways.
 
 ---
 
 #### 5.2 General Functions — `verb_object`
 
-Most reusable functionality lives here.
+Most reusable functionality uses `verb_object` naming.
 
 Examples:
 
@@ -242,18 +232,13 @@ lookup_key(k)
 process_event(evt)
 ```
 
-These are the main roads:
-
-* predictable
-* steady
-* broadly applicable
-* context-aware
+These represent steady, predictable actions used across the system.
 
 ---
 
-#### 5.3 One-Off Functional Units — Long, Prose-Like Names
+#### 5.3 One-Off Functional Units — Long Names
 
-If a function is only ever called from **one place**, it should **say exactly what it does**.
+Functions called from exactly one location use long, descriptive names.
 
 Examples:
 
@@ -263,25 +248,21 @@ check_for_restart_request_and_handle()
 update_filetree_cache_after_reload()
 ```
 
-These functions are:
+These functions act as labeled code blocks:
 
-* labeled code blocks
-* outline nodes
-* narrative segments
-
-They are not reusable tools — they are **named moments in the story**.
+* not intended for reuse
+* not part of the shared vocabulary
+* used to segment and clarify flow
 
 ---
 
-#### 5.4 Predicates — Questions, Not Computations
+#### 5.4 Predicates — Questions
 
-Predicates return booleans and must **read like questions**.
-
-There are two kinds:
+Predicates return booleans and must read like true/false questions.
 
 ##### System-Wide Predicates (Short)
 
-Reusable, high-frequency checks:
+Reusable checks used across the codebase:
 
 ```python
 is_system_ready()
@@ -290,39 +271,35 @@ should_retry_later()
 may_attempt_reconnect()
 ```
 
-These form the **decision vocabulary** of the system.
+Allowed prefixes:
+
+* `is_` — state
+* `has_` — existence
+* `should_` — policy or intent
+* `may_` — permission or capability
 
 ##### Single-Context Predicates (Long)
 
-Used once, narrative, descriptive:
+Predicates used once, with narrative names:
 
 ```python
 should_we_reload_everything_from_disk_now()
 has_user_already_selected_a_photo_this_session()
 ```
 
-These exist to:
-
-* segment logic
-* name decisions
-* improve scanability
+These exist to segment logic without introducing new vocabulary.
 
 ---
 
-#### 5.5 Callback Handlers — City Gates
+#### 5.5 Callback Handlers — External Entry Points
 
-Callback handlers are invoked by **external systems**.
-
-They are:
-
-* single-source
-* event-specific
-* boundary crossings
+Callback handlers mark boundaries where external systems invoke logic.
 
 They must:
 
 * begin with `handle_` or `on_`
-* use long, narrative names
+* use long, descriptive names
+* correspond to a specific event
 
 Examples:
 
@@ -332,26 +309,9 @@ handle_after_receiving_mqtt_message_from_desktop(msg)
 handle_when_socket_connection_fails(error)
 ```
 
-These names turn stack traces into readable stories.
+This makes event flow visible and stack traces readable.
 
 ---
-
-### Closing Principle
-
-These conventions exist to make the codebase:
-
-* readable as a map, not a maze
-* easy to navigate without memorization
-* expressive without clutter
-* pleasant to live inside
-
-Short names are *earned*.
-Long names are *labels*.
-Flags preserve unity.
-Context carries meaning.
-
-If this style feels unfamiliar, read the code as **terrain**, not syntax.
-
 
 ## 6. Constraints Are Features
 
