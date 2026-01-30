@@ -14,9 +14,13 @@ Usage:
     app.main()  # Validates and runs lifecycle
 """
 
+import sys
+
 from lionscliapp import application as appmodel
 from lionscliapp import runtime_state
 from lionscliapp import resolve_execroot
+from lionscliapp import cli_parsing
+from lionscliapp import config_io
 from lionscliapp.paths import ensure_project_root_exists
 
 
@@ -29,8 +33,8 @@ def main():
     declaring -> running -> shutdown
 
     This minimal implementation:
+    - Parses CLI arguments into cli_state
     - Creates project directory if missing
-    - Does not parse CLI arguments
     - Does not read configuration
     - Does not construct ctx
 
@@ -45,6 +49,9 @@ def main():
     # Ensure all commands have fn bound
     appmodel.ensure_commands_bound()
 
+    # Ingest CLI arguments
+    cli_parsing.ingest_argv(sys.argv[1:])
+    
     # Transition to running
     runtime_state.transition_to_running()
 
@@ -54,6 +61,9 @@ def main():
     # Ensure project directory exists
     ensure_project_root_exists()
 
+    # Load raw config (disk -> raw_config)
+    config_io.load_config()
+    
     try:
         # No actual execution in this minimal version
         pass

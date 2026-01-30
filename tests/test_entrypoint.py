@@ -1,5 +1,6 @@
 """Tests for lionscliapp.entrypoint module."""
 
+import sys
 import pytest
 import lionscliapp as app
 from lionscliapp import application as appmodel
@@ -18,6 +19,7 @@ def setup_function():
 def test_main_transitions_to_shutdown(tmp_path, monkeypatch):
     """main() transitions phase from declaring through running to shutdown."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp"])
 
     def my_cmd():
         pass
@@ -36,6 +38,7 @@ def test_main_transitions_to_shutdown(tmp_path, monkeypatch):
 def test_main_passes_through_running_phase(tmp_path, monkeypatch):
     """main() transitions through running phase before shutdown."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp"])
     phases_seen = []
 
     def capture_phase():
@@ -66,6 +69,7 @@ def test_main_passes_through_running_phase(tmp_path, monkeypatch):
 def test_declarations_blocked_after_main(tmp_path, monkeypatch):
     """Declarations are blocked after main() completes (shutdown phase)."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp"])
 
     def my_cmd():
         pass
