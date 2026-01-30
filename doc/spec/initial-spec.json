@@ -1,13 +1,30 @@
 {
   "document": {
-    "document_id": "lionscliapp.initial-spec.v0_1",
-    "version": "0.1",
+    "document_id": "lionscliapp.initial-spec.v0_2",
+    "version": "0.2",
     "title": "Lion's CLI App framework -- Initial Specification"
   },
   "system": {
     "name": "lionscliapp",
     "purpose": "Provide a humane execution and configuration environment for CLI-style tools, removing argument-parsing tax, supporting persistent per-project configuration, typed option namespaces, and both CLI and programmatic invocation.",
     "typical_import": "import lionscliapp as app"
+  },
+  "design_constraints": {
+    "scope": "v0",
+    "execution_model": [
+      "Single-process",
+      "Single-application instance",
+      "Single execution lifecycle"
+    ],
+    "threading": "Framework is not thread-safe by design.",
+    "testing_model": [
+      "ctx is constructed deterministically during main() or run().",
+      "Tests invoke commands via main() or run() to obtain ctx."
+    ],
+    "rationale": [
+      "Simplifies inspection, tooling, and orchestration.",
+      "Avoids premature abstraction for concurrency."
+    ]
   },
   "declaration_model": {
     "philosophy": "Programs declare application structure; the runtime constructs and supplies execution context.",
@@ -129,7 +146,24 @@
     },
     "extension_policy": {
       "framework": "Framework may define additional namespaces in future versions.",
-      "programs": "Programs may define semantic meaning for subkeys but not redefine namespace behavior."
+      "programs": "Programs may define semantic meaning for subkeys and for unknown namespaces, but may not redefine framework-defined namespace coercion behavior."
+    },
+    "unknown_namespace_behavior": {
+      "rule": "allowed",
+      "meaning": "Option keys whose namespace prefix does not match any known namespace are accepted.",
+      "validation": [
+        "Value must be JSON-serializable."
+      ],
+      "coercion": "identity (no coercion performed)",
+      "runtime_type": "string or JSON-compatible value",
+      "rationale": [
+        "Allows forward compatibility and program-defined semantics.",
+        "Avoids rejecting valid configuration prematurely.",
+        "Prevents silent coercion of unknown data."
+      ],
+      "future": {
+        "namespace_registration": "Future versions may allow explicit registration of new namespaces with validation and coercion rules."
+      }
     }
   },
   "override_layers": {
@@ -421,7 +455,8 @@
         "Option override without value",
         "Malformed --key syntax",
         "Unreadable options-file path",
-        "Invalid JSON in options file"
+        "Invalid JSON in options file",
+        "Absence of a command token is not an error; it is resolved via no-command dispatch rules."
       ]
     }
   },
@@ -440,7 +475,20 @@
         "unknown namespace → error",
         "invalid value → error with explanation"
       ],
-      "persistence": "yes"
+      "persistence": "yes",
+      "atomic_write_failure": {
+        "behavior": [
+          "If temp file creation fails, abort operation.",
+          "If atomic replace fails, abort operation.",
+          "Print error message and full traceback.",
+          "No partial changes are committed."
+        ],
+        "recovery": "User may retry the set command after resolving the underlying issue.",
+        "rationale": [
+          "Keeps failure handling simple and transparent.",
+          "Avoids hidden recovery logic or silent corruption."
+        ]
+      }
     },
     "get": {
       "syntax": "get <key>",
@@ -496,6 +544,35 @@
         "display option keys and defaults"
       ],
       "persistence": "no"
+    }
+  },
+  "command_binding": {
+    "structure_declared_in": "declare(spec_dict)",
+    "function_binding_via": "declare_cmd(name, fn)",
+    "rationale": "Callable objects cannot be expressed in declarative specs; structure and behavior are bound separately."
+  },
+  "command_dispatch": {
+    "no_command_behavior": {
+      "definition": "Invocation where no command token is supplied on the CLI.",
+      "registration": {
+        "method": "declare_cmd",
+        "allowed_names": [
+          null,
+          ""
+        ],
+        "meaning": "A command registered under null or empty string is invoked when no command is provided."
+      },
+      "fallback_behavior": {
+        "when_unregistered": [
+          "Print application name, version, and description.",
+          "List available commands with short descriptions.",
+          "Display help information."
+        ]
+      },
+      "rationale": [
+        "Provides humane CLI behavior without implicit default commands.",
+        "Keeps command dispatch explicit and declarative."
+      ]
     }
   },
   "unknown_key_policy": {
@@ -605,7 +682,27 @@
           "Validation or parsing errors abort before command dispatch.",
           "Uncaught command exceptions propagate unless framework intercepts them (future)."
         ],
-        "return_value": "Returns whatever value the dispatched command returns (if any)."
+        "exit_codes": {
+          "success": {
+            "code": 0,
+            "meaning": "Command executed successfully."
+          },
+          "errors": {
+            "validation_error": {
+              "code": 1,
+              "meaning": "Application validation, configuration, or CLI parsing error."
+            },
+            "dispatch_error": {
+              "code": 2,
+              "meaning": "Unknown command or unbound command function."
+            },
+            "runtime_exception": {
+              "code": 3,
+              "meaning": "Uncaught exception during command execution."
+            }
+          },
+          "return_value": "main() returns the dispatched command’s return value, but process exit code reflects execution outcome."
+        }
       },
       "run": {
         "signature": "run(command: string, options?: dict<option-key, json-value>) -> any",
@@ -641,8 +738,8 @@
         "description": "declare a short description for the app"
       },
       "describe_app": {
-        "signature": "describe_app('<description>')",
-        "description": "declare a lengthy description for the app"
+        "signature": "describe_app('<description>', flags='')",
+        "description": "declare a short (s) or lengthy ([l]) description for the app"
       },
       "declare_projectdir": {
         "signature": "declare_projectdir('<name-of-project-dir>')",
@@ -650,34 +747,33 @@
       },
       "declare_cmd": {
         "signature": "declare_cmd('<cmd>', nullary_fn)",
-        "description": "bind a command string to a command objet in the application, so that the function will be called when handling that command"
-      },
-      "describe_cmdhook": {
-        "signature": "describe_cmdhook('<cmd>', '<short-1-line-description>')",
-        "description": "declare a short description for the command"
+        "description": "bind a command string to a command objet in the application, so that the function will be called when handling that command; cmd may be an empty string to indicate no-command dispatch"
       },
       "describe_cmd": {
-        "signature": "describe_cmd('<cmd>', '<description>')",
-        "description": "declare a lengthy description for the command"
+        "signature": "describe_cmd('<cmd>', '<description>', flags='')",
+        "description": "declare a short (s) or lengthy ([l]) description for the command",
+        "flags": {
+          "s": "short description",
+          "[l]": "long description"
+        }
       },
       "declare_key": {
-        "signature": "declare_key('<key>')",
-        "description": "declare a valid configuration key"
+        "signature": "declare_key('<key>', default)",
+        "description": "Declare a valid configuration key and its default value. The default value must be JSON-serializable and establishes the initial value written to config.json if no override is present."
       },
-      "describe_keyhook": {
-        "signature": "describe_keyhook('<key>', '<short-1-line-description>')",
-        "description": "declare a short description for the key"
+      "describe_key": {
+        "signature": "describe_key('<key>', '<description>', flags='')",
+        "description": "declare a short (s) or lengthy ([l]) description for the key",
+        "flags": {
+          "s": "short description",
+          "[l]": "long description"
+        }
       },
       "declare": {
         "signature": "declare({...})",
         "description": "perform a mass declaration; this data is updated into the application definition"
       }
     }
-  },
-  "command_binding": {
-    "structure_declared_in": "declare(spec_dict)",
-    "function_binding_via": "declare_cmd(name, fn)",
-    "rationale": "Callable objects cannot be expressed in declarative specs; structure and behavior are bound separately."
   },
   "serialization_invariant": {
     "scope": [
@@ -698,6 +794,19 @@
       "Supports inspection, debugging, and tooling",
       "Enables future FileTalk- and Patchboard-style orchestration",
       "Preserves a strict separation between declarative data and executable behavior"
+    ]
+  },
+  "explicit_non_goals.v0": {
+    "items": [
+      "Internationalization (i18n)",
+      "Environment variable override layers",
+      "Logging APIs",
+      "Non-JSON configuration formats",
+      "Positional or variadic command arguments"
+    ],
+    "rationale": [
+      "Keeps v0 focused on declarative structure and humane configuration.",
+      "Avoids premature generalization."
     ]
   }
 }
