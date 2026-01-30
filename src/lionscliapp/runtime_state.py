@@ -25,6 +25,10 @@ _state = {
 }
 
 
+def reset_runtime_state():
+    _state["phase"] = "declaring"
+
+
 def get_phase():
     """Return the current execution phase."""
     return _state["phase"]
@@ -85,3 +89,6 @@ def require_declaring_phase():
             f"Structural declarations are only allowed during the 'declaring' phase, "
             f"which ends when app.main() is called."
         )
+
+
+reset_runtime_state()
