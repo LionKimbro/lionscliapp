@@ -215,6 +215,12 @@
         "Mutation attempts when phase != 'declaring' must raise error."
       ]
     },
+    "execroot": {
+      "role": "Resolved execution root directory.",
+      "persistence": "Not written to disk.",
+      "lifetime": "Valid only for duration of app.main().",
+      "type": "pathlib.Path"
+    },
     "application": {
       "role": "Program-declared contract defining identity, configuration schema, and supported commands.",
       "persistence": "Not written to disk; constructed at startup from declarations.",
