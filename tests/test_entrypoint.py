@@ -1,6 +1,7 @@
 """Tests for lionscliapp.entrypoint module."""
 
 import pytest
+import lionscliapp as app
 from lionscliapp import application as appmodel
 from lionscliapp import runtime_state
 from lionscliapp import declarations
@@ -9,9 +10,7 @@ from lionscliapp.entrypoint import main
 
 def setup_function():
     """Reset application and runtime state before each test."""
-    appmodel.reset_application()
-    runtime_state._state.clear()
-    runtime_state._state["phase"] = "declaring"
+    app.reset()
 
 
 # --- Phase transition tests ---
