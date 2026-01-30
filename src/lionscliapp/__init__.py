@@ -8,6 +8,8 @@ Typical import:
 from lionscliapp import application
 from lionscliapp import runtime_state
 from lionscliapp import execroot
+from lionscliapp import file_io
+from lionscliapp import config_io
 
 from lionscliapp.runtime_state import get_phase
 from lionscliapp.entrypoint import main
@@ -33,4 +35,6 @@ def reset():
     application.reset_application()
     runtime_state.reset_runtime_state()
     execroot.reset_execroot()
+    file_io.reset_file_io()
+    config_io.reset_config()
 
