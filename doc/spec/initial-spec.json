@@ -1,7 +1,7 @@
 {
   "document": {
-    "document_id": "lionscliapp.initial-spec.v0_2",
-    "version": "0.2",
+    "document_id": "lionscliapp.initial-spec.v0_3",
+    "version": "0.3",
     "title": "Lion's CLI App framework -- Initial Specification"
   },
   "system": {
@@ -472,7 +472,7 @@
         "update app.ctx"
       ],
       "errors": [
-        "unknown namespace → error",
+        "unknown option key → error",
         "invalid value → error with explanation"
       ],
       "persistence": "yes",
@@ -705,6 +705,7 @@
         }
       },
       "run": {
+        "status": "deferred",
         "signature": "run(command: string, options?: dict<option-key, json-value>) -> any",
         "purpose": "Invoke an application command programmatically using main() execution pipeline.",
         "behavior": [
@@ -732,10 +733,6 @@
       "declare_app": {
         "signature": "declare_app('<name>', '<version>')",
         "description": "declare the name and version of the application"
-      },
-      "describe_apphook": {
-        "signature": "describe_apphook('<one-line-description>')",
-        "description": "declare a short description for the app"
       },
       "describe_app": {
         "signature": "describe_app('<description>', flags='')",
@@ -773,6 +770,90 @@
         "signature": "declare({...})",
         "description": "perform a mass declaration; this data is updated into the application definition"
       }
+    },
+    "api_surface_doctrine": {
+      "purpose": "Define and constrain the public API surface of lionscliapp to preserve architectural authority, lifecycle safety, and long-term coherence.",
+      "core_principle": "The public API exposes observation, not authority.",
+      "public_api_categories": {
+        "allowed": {
+          "declaration_apis": {
+            "category": "declaration_apis",
+            "meaning": "Functions that contribute declarative structure to the application model.",
+            "examples": [
+              "declare_app",
+              "declare_cmd",
+              "declare_key",
+              "describe_app",
+              "describe_cmd",
+              "describe_key"
+            ]
+          },
+          "introspection_apis": {
+            "category": "introspection_apis",
+            "meaning": "Read-only accessors that report framework or application state without mutating it.",
+            "examples": [
+              "get_phase"
+            ]
+          },
+          "primary_entrypoints": {
+            "category": "primary_entrypoints",
+            "meaning": "Explicit high-level execution entrypoints that own lifecycle transitions.",
+            "examples": [
+              "main"
+            ]
+          },
+          "execution_utilities": {
+            "category": "execution_utilities",
+            "meaning": "Helper functions intended for use during command execution that perform framework-mediated operations without mutating lifecycle state or declared structure.",
+            "constraints": [
+              "Must not advance or mutate framework lifecycle phase.",
+              "Must respect declared configuration and ctx.",
+              "Must not modify raw_config_json unless explicitly defined as a configuration command.",
+              "Must be safe to call only during execution phase."
+            ],
+            "examples": [
+              "read_json",
+              "write_json"
+            ]
+          }
+        }
+      },
+      "internal_only_categories": {
+        "disallowed_from_public_api": [
+          {
+            "category": "lifecycle_transition_functions",
+            "meaning": "Functions that advance or mutate the framework execution phase.",
+            "examples": [
+              "transition_to_running",
+              "transition_to_shutdown"
+            ]
+          },
+          {
+            "category": "enforcement_and_guard_helpers",
+            "meaning": "Functions whose purpose is to enforce internal invariants or mutation rules.",
+            "examples": [
+              "require_declaring_phase"
+            ]
+          },
+          {
+            "category": "authority_bearing_mechanisms",
+            "meaning": "Any function that could bypass, short-circuit, or destabilize the declared execution model if called out of sequence."
+          }
+        ]
+      },
+      "rules": {
+        "public_exposure": "Public exposure of functions must be intentional and explicit.",
+        "authority_boundary": "User code may declare structure and observe state, but may not directly manipulate lifecycle, execution phase, or internal invariants.",
+        "naming_convention": "Internal-only helpers may be prefixed or otherwise structured to signal non-public status."
+      },
+      "rationale": [
+        "Preserves clear architectural authority: programs declare, the runtime enforces.",
+        "Prevents accidental or intentional misuse of lifecycle controls.",
+        "Keeps the API surface minimal, humane, and stable.",
+        "Supports inspection and tooling without exposing dangerous levers.",
+        "Aligns with the single-process, single-lifecycle scope of v0."
+      ],
+      "design_implication": "If a function exists primarily to enforce rules, advance phases, or maintain internal consistency, it is not part of the public API, even if it is technically callable."
     }
   },
   "serialization_invariant": {
