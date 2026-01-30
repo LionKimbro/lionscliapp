@@ -21,6 +21,7 @@ from lionscliapp import runtime_state
 from lionscliapp import resolve_execroot
 from lionscliapp import cli_parsing
 from lionscliapp import config_io
+from lionscliapp import override_inputs
 from lionscliapp.ctx import build_ctx
 from lionscliapp.paths import ensure_project_root_exists
 
@@ -64,6 +65,9 @@ def main():
 
     # Load raw config (disk -> raw_config)
     config_io.load_config()
+
+    # Load options file (if --options-file specified)
+    override_inputs.load_options_file()
 
     # Build ctx (merge layers, coerce by namespace)
     build_ctx()

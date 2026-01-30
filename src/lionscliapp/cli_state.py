@@ -9,7 +9,9 @@ converting paths to pathlib.Path) happens in later phases.
 
 Global state:
     g: Scalar facts (command, options_file, execroot_override)
-    option_overrides: Dict of dot-namespaced option overrides
+
+Note: Option overrides (--key value) are written directly to
+override_inputs.cli_overrides by cli_parsing.
 """
 
 g = {
@@ -18,17 +20,14 @@ g = {
     "execroot_override": None,    # None | str (path)
 }
 
-option_overrides = {}  # dict[str, str]
-
 
 def reset_cli_state():
     """
     Reset all CLI state to initial values.
 
-    Clears g to None values and empties option_overrides.
+    Clears g to None values.
     Called at the start of ingest_argv() and by app.reset().
     """
     g["command"] = None
     g["options_file"] = None
     g["execroot_override"] = None
-    option_overrides.clear()

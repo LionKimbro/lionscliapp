@@ -6,8 +6,9 @@ configuration at runtime. The ctx is built by:
 
 1. Starting with declared defaults from application["options"]
 2. Overlaying raw_config["options"]
-3. Overlaying cli_state.option_overrides
-4. Coercing values by namespace policies
+3. Overlaying override_inputs.options_file_overrides
+4. Overlaying override_inputs.cli_overrides
+5. Coercing values by namespace policies
 
 Namespace coercion rules (from spec):
     path.*           -> pathlib.Path (expanduser, relative resolved against execroot)
@@ -23,7 +24,7 @@ from pathlib import Path
 
 from lionscliapp.application import application
 from lionscliapp import config_io
-from lionscliapp import cli_state
+from lionscliapp import override_inputs
 from lionscliapp import execroot
 
 
@@ -37,7 +38,8 @@ def build_ctx():
     Merge order (later wins):
         1. Declared defaults (application["options"][key]["default"])
         2. Config file values (raw_config["options"])
-        3. CLI overrides (cli_state.option_overrides)
+        3. Options file overrides (override_inputs.options_file_overrides)
+        4. CLI overrides (override_inputs.cli_overrides)
 
     After merging, values are coerced by namespace prefix.
 
@@ -54,8 +56,13 @@ def build_ctx():
         if key in ctx:
             ctx[key] = value
 
-    # Layer 3: CLI overrides
-    for key, value in cli_state.option_overrides.items():
+    # Layer 3: Options file overrides
+    for key, value in override_inputs.options_file_overrides.items():
+        if key in ctx:
+            ctx[key] = value
+
+    # Layer 4: CLI overrides
+    for key, value in override_inputs.cli_overrides.items():
         if key in ctx:
             ctx[key] = value
 

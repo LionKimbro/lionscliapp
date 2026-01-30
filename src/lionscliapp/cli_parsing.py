@@ -3,24 +3,25 @@
 CLI argument ingestion layer (v0).
 
 This module owns argv ingestion. It reads argv and writes
-parsed results into cli_state. It does not return anything and does
-not perform semantic interpretation.
+parsed results into cli_state and override_inputs. It does not return
+anything and does not perform semantic interpretation.
 
 All values are stored as raw strings. No coercion, no typing.
 """
 
 from lionscliapp import cli_state
+from lionscliapp import override_inputs
 
 
 def ingest_argv(argv: list[str]) -> None:
     """
-    Parse command-line arguments and populate cli_state.
+    Parse command-line arguments and populate cli_state and override_inputs.
 
     Reads argv left-to-right, writing results into:
     - cli_state.g["command"]
     - cli_state.g["execroot_override"]
     - cli_state.g["options_file"]
-    - cli_state.option_overrides
+    - override_inputs.cli_overrides
 
     Args:
         argv: List of command-line arguments (typically sys.argv[1:])
@@ -30,6 +31,7 @@ def ingest_argv(argv: list[str]) -> None:
                     unknown syntax, multiple positional tokens, etc.)
     """
     cli_state.reset_cli_state()
+    override_inputs.cli_overrides.clear()
 
     i = 0
     command_seen = False
@@ -54,7 +56,7 @@ def ingest_argv(argv: list[str]) -> None:
             elif key == "options-file":
                 cli_state.g["options_file"] = value
             else:
-                cli_state.option_overrides[key] = value
+                override_inputs.cli_overrides[key] = value
 
             i += 2
 

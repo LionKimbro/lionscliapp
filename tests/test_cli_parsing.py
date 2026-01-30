@@ -4,6 +4,7 @@ import pytest
 
 import lionscliapp as app
 from lionscliapp import cli_state
+from lionscliapp import override_inputs
 from lionscliapp.cli_parsing import ingest_argv
 
 
@@ -21,7 +22,7 @@ def test_ingest_argv_empty_leaves_defaults():
     assert cli_state.g["command"] is None
     assert cli_state.g["options_file"] is None
     assert cli_state.g["execroot_override"] is None
-    assert cli_state.option_overrides == {}
+    assert override_inputs.cli_overrides == {}
 
 
 def test_ingest_argv_command_only():
@@ -34,12 +35,12 @@ def test_ingest_argv_command_only():
 def test_ingest_argv_resets_state_before_parsing():
     """ingest_argv resets state at start."""
     cli_state.g["command"] = "old"
-    cli_state.option_overrides["key"] = "value"
+    override_inputs.cli_overrides["key"] = "value"
 
     ingest_argv(["new"])
 
     assert cli_state.g["command"] == "new"
-    assert cli_state.option_overrides == {}
+    assert override_inputs.cli_overrides == {}
 
 
 # --- Recognized options ---
@@ -59,17 +60,17 @@ def test_ingest_argv_options_file_option():
 
 
 def test_ingest_argv_generic_option_override():
-    """--something stores in option_overrides."""
+    """--something stores in cli_overrides."""
     ingest_argv(["--db.host", "localhost"])
 
-    assert cli_state.option_overrides == {"db.host": "localhost"}
+    assert override_inputs.cli_overrides == {"db.host": "localhost"}
 
 
 def test_ingest_argv_multiple_option_overrides():
     """Multiple generic options all stored."""
     ingest_argv(["--db.host", "localhost", "--db.port", "5432"])
 
-    assert cli_state.option_overrides == {"db.host": "localhost", "db.port": "5432"}
+    assert override_inputs.cli_overrides == {"db.host": "localhost", "db.port": "5432"}
 
 
 # --- Combined cases ---
@@ -122,8 +123,8 @@ def test_ingest_argv_values_are_strings():
     """All values stored as raw strings, no coercion."""
     ingest_argv(["--port", "8080", "--enabled", "true"])
 
-    assert cli_state.option_overrides["port"] == "8080"
-    assert isinstance(cli_state.option_overrides["port"], str)
+    assert override_inputs.cli_overrides["port"] == "8080"
+    assert isinstance(override_inputs.cli_overrides["port"], str)
 
 
 def test_ingest_argv_execroot_is_string():

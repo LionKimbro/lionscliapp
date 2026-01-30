@@ -11,6 +11,7 @@ from lionscliapp import execroot
 from lionscliapp import file_io
 from lionscliapp import config_io
 from lionscliapp import cli_state
+from lionscliapp import override_inputs
 from lionscliapp import ctx as ctx_module
 
 from lionscliapp.ctx import ctx
@@ -42,5 +43,6 @@ def reset():
     file_io.reset_file_io()
     config_io.reset_config()
     cli_state.reset_cli_state()
+    override_inputs.reset_override_inputs()
     ctx_module.reset_ctx()
 
