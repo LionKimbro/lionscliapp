@@ -1,0 +1,703 @@
+{
+  "document": {
+    "document_id": "lionscliapp.initial-spec.v0_1",
+    "version": "0.1",
+    "title": "Lion's CLI App framework -- Initial Specification"
+  },
+  "system": {
+    "name": "lionscliapp",
+    "purpose": "Provide a humane execution and configuration environment for CLI-style tools, removing argument-parsing tax, supporting persistent per-project configuration, typed option namespaces, and both CLI and programmatic invocation.",
+    "typical_import": "import lionscliapp as app"
+  },
+  "declaration_model": {
+    "philosophy": "Programs declare application structure; the runtime constructs and supplies execution context.",
+    "output_model": "data_models.application",
+    "construction_rules": [
+      "Declarations incrementally construct a single in-memory application object.",
+      "Declarations may be provided as one or more partial contributions.",
+      "Later declarations override earlier values at field granularity.",
+      "Structural declarations must complete before app.main() is entered."
+    ],
+    "merge_semantics": {
+      "objects": "merged recursively by key",
+      "scalars": "last value wins",
+      "commands": "command entries may be declared structurally before function binding",
+      "options": "option keys must be unique; later defaults override earlier ones"
+    },
+    "validation_timing": {
+      "when": "at entry to app.main()",
+      "requirements": [
+        "Application object must conform to data_models.application schema.",
+        "All required application identity fields must be present.",
+        "All declared option keys must follow option_model naming rules.",
+        "All declared commands must have callable functions bound before dispatch."
+      ]
+    },
+    "mutation_rules": {
+      "before_main": "allowed",
+      "after_main": "disallowed; raises error"
+    },
+    "error_policy": {
+      "missing_required_fields": "fatal startup error",
+      "invalid_option_names": "error at declaration time if detectable, otherwise at validation",
+      "unbound_command_functions": "error when attempting to dispatch command",
+      "late_declarations": "error if mutation attempted after app.main()"
+    }
+  },
+  "project_directory": {
+    "concept": "Per-project persistent runtime data folder located relative to an execution root.",
+    "name_source": "data_models.application.names.project_dir",
+    "meaning": [
+      "The project directory name is declared by the application.",
+      "The framework does not invent or default the name independently."
+    ],
+    "location_rules": {
+      "default": "Execution root is the current working directory.",
+      "override": {
+        "cli-arg": "--execroot <path>",
+        "allowed_when": "application.flags.allow_execroot_override == true",
+        "meaning": "Execution root is set explicitly by user."
+      },
+      "search_upwards": {
+        "enabled_when": "application.flags.search_upwards_for_project_dir == true",
+        "behavior": [
+          "Search parent directories for existing project directory.",
+          "If found, the directory that contains the project directory becomes the execution root.",
+          "If not found, execution root remains the original starting directory.",
+          "Project directory is never created at filesystem root as a result of upward search."
+        ]
+      }
+    },
+    "creation_policy": {
+      "when_missing": "If project directory does not exist after execution root resolution, create it.",
+      "scope": "Creation occurs only in the resolved execution root, never above the original starting directory."
+    },
+    "contents": {
+      "config.json": "Persistent configuration instance (data_models.raw_config_json).",
+      "state.json": "Optional program-defined state or caches.",
+      "logs/": "Optional runtime logs.",
+      "extension_policy": "Programs and tools may create additional files and directories as needed."
+    }
+  },
+  "option_model": {
+    "purpose": "Define semantic meaning, validation, and coercion behavior for option keys based on namespace prefixes.",
+    "naming": {
+      "style": "dot-namespaced keys",
+      "examples": [
+        "path.scan",
+        "path.output.inventory",
+        "json.rendering.inventory",
+        "json.indent.inventory"
+      ],
+      "rules": [
+        "Option keys must consist of lowercase letters, digits, and dots.",
+        "Namespace is determined by prefix before first dot.",
+        "Subkeys after namespace are program-defined identifiers."
+      ]
+    },
+    "namespace_semantics": {
+      "path": {
+        "applies_to": "option keys beginning with 'path.'",
+        "meaning": "Filesystem path references.",
+        "validation": [
+          "Must be valid path string.",
+          "May be relative or absolute."
+        ],
+        "coercion": "string -> pathlib.Path",
+        "runtime_type": "pathlib.Path",
+        "logical_json_form": "string path"
+      },
+      "json.rendering": {
+        "applies_to": "option keys beginning with 'json.rendering.'",
+        "meaning": "Controls JSON serialization formatting.",
+        "allowed_values": [
+          "pretty",
+          "compact"
+        ],
+        "coercion": "validated string enum",
+        "runtime_type": "string"
+      },
+      "json.indent": {
+        "applies_to": "option keys beginning with 'json.indent.'",
+        "meaning": "Indentation level for pretty-printed JSON.",
+        "validation": [
+          "Must be integer >= 0"
+        ],
+        "coercion": "string or number -> int",
+        "runtime_type": "int"
+      }
+    },
+    "extension_policy": {
+      "framework": "Framework may define additional namespaces in future versions.",
+      "programs": "Programs may define semantic meaning for subkeys but not redefine namespace behavior."
+    }
+  },
+  "override_layers": {
+    "order": [
+      "declared defaults",
+      "config.json",
+      "options-file JSON (optional, future)",
+      "CLI overrides",
+      "programmatic dict overrides (future)"
+    ],
+    "principle": "Later layers override earlier layers; only explicit set commands persist to disk."
+  },
+  "data_models": {
+    "runtime_state": {
+      "role": "Framework execution phase and mutability guard.",
+      "persistence": "Not written to disk.",
+      "schema": {
+        "phase": {
+          "type": "string",
+          "allowed": [
+            "declaring",
+            "running",
+            "shutdown"
+          ],
+          "meaning": {
+            "declaring": "Declarations are still permitted.",
+            "running": "Application is executing; structural mutation forbidden.",
+            "shutdown": "Program is terminating."
+          }
+        }
+      },
+      "initial_state": {
+        "phase": "declaring"
+      },
+      "state_transitions": [
+        {
+          "from": "declaring",
+          "to": "running",
+          "trigger": "entry to app.main()"
+        },
+        {
+          "from": "running",
+          "to": "shutdown",
+          "trigger": "normal or abnormal termination"
+        }
+      ],
+      "enforcement_rules": [
+        "All declaration APIs must check that phase == 'declaring'.",
+        "Mutation attempts when phase != 'declaring' must raise error."
+      ]
+    },
+    "application": {
+      "role": "Program-declared contract defining identity, configuration schema, and supported commands.",
+      "persistence": "Not written to disk; constructed at startup from declarations.",
+      "source": "declare(spec_dict) and incremental declare_* calls.",
+      "required_keys": [
+        "id",
+        "names",
+        "flags",
+        "options",
+        "commands"
+      ],
+      "schema": {
+        "id": {
+          "required": [
+            "name",
+            "version"
+          ],
+          "optional": [
+            "short_desc",
+            "long_desc"
+          ],
+          "fields": {
+            "name": "string",
+            "version": "string",
+            "short_desc": "string or null",
+            "long_desc": "string or null"
+          }
+        },
+        "names": {
+          "required": [
+            "project_dir"
+          ],
+          "fields": {
+            "project_dir": "string"
+          }
+        },
+        "flags": {
+          "type": "dict<string, boolean>",
+          "known_flags": {
+            "search_upwards_for_project_dir": {
+              "default": false,
+              "meaning": "If true, execution root discovery searches parent directories for project_dir."
+            },
+            "allow_execroot_override": {
+              "default": true,
+              "meaning": "If true, CLI flag --execroot <path> is accepted."
+            }
+          },
+          "extension_policy": "Programs may define additional boolean flags. (future)"
+        },
+        "options": {
+          "role": "Configuration schema for all option keys available to the program.",
+          "type": "dict<option-key, option-schema>",
+          "option-schema": {
+            "required": [
+              "default"
+            ],
+            "optional": [
+              "short",
+              "long"
+            ],
+            "fields": {
+              "default": "any JSON-serializable value",
+              "short": "string or null",
+              "long": "string or null"
+            }
+          },
+          "naming_rules": {
+            "style": "dot-namespaced",
+            "examples": [
+              "path.scan",
+              "path.output.inventory",
+              "json.rendering.inventory",
+              "json.indent.inventory"
+            ]
+          }
+        },
+        "commands": {
+          "role": "Declared command interface of the application.",
+          "type": "dict<command-name, command-schema>",
+          "command-schema": {
+            "required": [
+              "fn"
+            ],
+            "optional": [
+              "short",
+              "long"
+            ],
+            "fields": {
+              "fn": "null (placeholder) or callable (bound later by declare_cmd)",
+              "short": "string or null",
+              "long": "string or null"
+            }
+          },
+          "binding_rule": "Callable values cannot be represented in declarative specs and must be supplied via declare_cmd(name, fn)."
+        }
+      },
+      "invariants": [
+        "Callable values may appear only in application.commands.<command>.fn.",
+        "No other data model may contain callable or non-JSON-serializable values."
+      ]
+    },
+    "raw_config_json": {
+      "role": "Persistent per-project configuration instance values.",
+      "persistence": "Stored at <project_dir>/config.json.",
+      "created_when": "If missing, created at first execution using declared defaults.",
+      "schema": {
+        "required_keys": [
+          "options"
+        ],
+        "fields": {
+          "options": {
+            "type": "dict<option-key, json-value>",
+            "meaning": "User-specified overrides of option defaults."
+          }
+        }
+      },
+      "validation_rules": [
+        "Only option keys declared in application.options are accepted (v0 behavior).",
+        "Values are stored pre-coercion."
+      ]
+    },
+    "override_inputs": {
+      "role": "Transient sources of configuration overrides applied during startup before ctx is finalized.",
+      "persistence": "Not written to disk.",
+      "lifetime": "Exists only during app.main() startup sequence.",
+      "schema": {
+        "cli_overrides": {
+          "type": "dict<option-key, json-value>",
+          "meaning": "Overrides parsed from command-line arguments.",
+          "source": "CLI parser",
+          "optional": true
+        },
+        "options_file_overrides": {
+          "type": "dict<option-key, json-value>",
+          "meaning": "Overrides loaded from a JSON options file supplied at invocation time.",
+          "source": "--options-file <path>",
+          "optional": true
+        },
+        "programmatic_overrides": {
+          "type": "dict<option-key, json-value>",
+          "meaning": "Overrides supplied by app.run() or other programmatic invocation paths.",
+          "source": "programmatic API",
+          "optional": true
+        }
+      },
+      "merge_order": [
+        "options_file_overrides",
+        "cli_overrides",
+        "programmatic_overrides"
+      ],
+      "application_rule": "Override layers are applied after raw_config_json and before coercion into ctx.",
+      "validation_rules": [
+        "All override keys must exist in application.options.",
+        "Values are validated and coerced using the same rules as config.json values.",
+        "Invalid override values abort execution before command dispatch."
+      ]
+    },
+    "ctx": {
+      "role": "Merged and coerced runtime execution context used by commands.",
+      "persistence": "Not written to disk.",
+      "construction": "Derived from defaults, raw_config_json, CLI overrides, and programmatic overrides.",
+      "schema": {
+        "type": "dict<option-key, typed-value>"
+      },
+      "coercion_rules": {
+        "path.*": "string -> pathlib.Path",
+        "json.rendering.*": "validated enum string",
+        "json.indent.*": "int >= 0",
+        "future": "namespace-based coercion rules may be added"
+      },
+      "serialization_policy": "ctx must remain JSON-serializable in logical form, even if runtime types differ."
+    }
+  },
+  "schema_instance_model": {
+    "schema": "Defined by declarations; option keys, defaults, validation rules",
+    "instance": "Stored values in config.json per project",
+    "runtime": "Merged, overridden, coerced execution context in app.ctx"
+  },
+  "main_lifecycle": {
+    "steps": [
+      "ingest all declarations into application model",
+      "set runtime_state.phase = 'running'",
+      "determine execution root",
+      "ensure project directory exists",
+      "load or create raw_config_json",
+      "collect override_inputs (options-file, CLI, programmatic)",
+      "merge defaults + raw_config_json + override_inputs into working map",
+      "coerce merged values into ctx",
+      "dispatch built-in or user command",
+      "set runtime_state.phase = 'shutdown'"
+    ]
+  },
+  "cli_parsing": {
+    "design": "minimal custom parser",
+    "syntax": [
+      "command",
+      "--key override-value (optional; implement in the future)",
+      "--options-file file.json (optional; implement in the future)"
+    ],
+    "non_goals": [
+      "short option names",
+      "positional arguments",
+      "shell-like quoting complexity",
+      "command must be first non-option token"
+    ],
+    "output": {
+      "role": "Defines the normalized output of CLI parsing prior to override merging.",
+      "persistence": "Not written to disk.",
+      "consumer": "data_models.override_inputs.cli_overrides",
+      "mapping": {
+        "option_overrides": "override_inputs.cli_overrides",
+        "options_file": "override_inputs.options_file_overrides"
+      },
+      "schema": {
+        "command": {
+          "type": "string",
+          "meaning": "Name of command to dispatch. Must match application.commands key."
+        },
+        "option_overrides": {
+          "type": "dict<option-key, json-value>",
+          "meaning": "Option overrides supplied via --key value pairs.",
+          "optional": true
+        },
+        "options_file": {
+          "type": "string (path)",
+          "meaning": "Path to JSON file providing option overrides, if supplied.",
+          "optional": true
+        }
+      },
+      "normalizing_rules": [
+        "All option keys must be in canonical dot-namespaced form.",
+        "Duplicate keys resolve with last occurrence winning.",
+        "Values are untyped JSON values pending coercion."
+      ],
+      "error_conditions": [
+        "Unknown command name",
+        "Option override without value",
+        "Malformed --key syntax",
+        "Unreadable options-file path",
+        "Invalid JSON in options file"
+      ]
+    }
+  },
+  "built_in_commands": {
+    "set": {
+      "syntax": "set <key> <value>",
+      "purpose": "Persistently update configuration value.",
+      "behavior": [
+        "validate key against option namespace rules",
+        "coerce value according to key prefix",
+        "update raw_config_json",
+        "write config.json safely (temp + replace)",
+        "update app.ctx"
+      ],
+      "errors": [
+        "unknown namespace → error",
+        "invalid value → error with explanation"
+      ],
+      "persistence": "yes"
+    },
+    "get": {
+      "syntax": "get <key>",
+      "purpose": "Display configuration value.",
+      "behavior": [
+        "if key exists, print raw and coerced value",
+        "if key missing, print error"
+      ],
+      "persistence": "no"
+    },
+    "clipset": {
+      "syntax": "clipset <key>",
+      "purpose": "Set config value from system clipboard.",
+      "behavior": [
+        "read clipboard as text",
+        "same validation and persistence path as set"
+      ],
+      "dependencies": [
+        "clipboard access (e.g. pyperclip)"
+      ],
+      "status": "future",
+      "persistence": "yes"
+    },
+    "tkset": {
+      "syntax": "tkset <key>",
+      "purpose": "Prompt user via GUI dialog for value.",
+      "behavior": [
+        "open tkinter dialog",
+        "same validation and persistence path as set"
+      ],
+      "dependencies": [
+        "tkinter"
+      ],
+      "status": "future",
+      "persistence": "yes"
+    },
+    "config": {
+      "syntax": "config",
+      "purpose": "Open interactive editor for project configuration.",
+      "behavior": [
+        "launch GUI or TUI editor over config.json",
+        "on save, reload ctx with coercion"
+      ],
+      "status": "future",
+      "persistence": "yes"
+    },
+    "help": {
+      "syntax": "help [command]",
+      "purpose": "Display available commands and options.",
+      "behavior": [
+        "list built-in and declared commands",
+        "optionally show per-command description",
+        "display option keys and defaults"
+      ],
+      "persistence": "no"
+    }
+  },
+  "unknown_key_policy": {
+    "scope": "built_in_commands.set",
+    "version": "v0",
+    "rule": "Unknown option keys are rejected.",
+    "behavior": [
+      "If the key does not exist in application.options, the operation fails.",
+      "No changes are written to config.json.",
+      "No changes are applied to ctx."
+    ],
+    "error": {
+      "type": "UnknownOptionKey",
+      "message": "Option key is not declared by the application."
+    },
+    "rationale": [
+      "Prevents silent configuration drift",
+      "Enforces a strict schema/instance boundary",
+      "Keeps config.json aligned with application-declared intent"
+    ],
+    "future": {
+      "extensibility": [
+        "force-create flag",
+        "interactive key declaration",
+        "schema-editing tools"
+      ],
+      "status": "explicitly out of scope for v0"
+    }
+  },
+  "user_commands": {
+    "definition": "declare_cmd(name, fn)",
+    "dispatch": "app.main() resolves command and calls fn() with ctx already prepared",
+    "access_context": "via app.ctx global"
+  },
+  "programmatic_invocation": {
+    "status": "deferred",
+    "introduced_in": "future-spec",
+    "reason": [
+      "v0 focuses on CLI execution and per-project configuration",
+      "Programmatic invocation requires additional invariants around mutation, lifecycle, and isolation",
+      "Avoids prematurely freezing an API surface"
+    ],
+    "non_goals_for_v0": [
+      "Calling commands via app.run(...)",
+      "Injecting option dictionaries programmatically",
+      "Inter-tool orchestration through direct invocation"
+    ],
+    "related_future_concepts": [
+      "FileTalk-style execution drivers",
+      "Structured override inputs",
+      "Serializable execution requests"
+    ],
+    "design_note": "The v0 architecture intentionally preserves enough structure (application schema, override layers, normalized CLI output) to support programmatic invocation later without breaking changes."
+  },
+  "gui_authoring_tools": {
+    "future_tools": [
+      "config editor GUI",
+      "option declaration editor",
+      "command explorer"
+    ],
+    "design_goal": "allow program structure and config to be edited outside source code",
+    "not_required_for_v0": true,
+    "status": "future"
+  },
+  "package_runtime_data": {
+    "goal": "allow package to ship editable declarative data",
+    "concept": "subpackage 'runtime' storing JSON specs and defaults",
+    "tools": "CLI utilities to read/write those resources",
+    "use_case": "tool builders editing tool behavior without editing Python source"
+  },
+  "philosophical_scope": {
+    "what_it_is": [
+      "startup environment",
+      "config management",
+      "command dispatch host"
+    ],
+    "what_it_is_not": [
+      "IPC system",
+      "Patchboard",
+      "Run Card protocol",
+      "daemon orchestration framework"
+    ]
+  },
+  "api": {
+    "module_functions": {
+      "main": {
+        "signature": "main() -> any",
+        "purpose": "Primary execution entrypoint for CLI-style invocation.",
+        "behavior": [
+          "Transitions runtime_state.phase from 'declaring' to 'running'.",
+          "Validates that application conforms to data_models.application.",
+          "Determines execution root according to flags and CLI options.",
+          "Ensures project directory exists.",
+          "Loads raw_config_json from <project_dir>/config.json or creates it from defaults.",
+          "Parses CLI input into cli_parsing_output.",
+          "Constructs override_inputs from cli_parsing_output and any options-file.",
+          "Merges defaults, raw_config_json, and override_inputs into working option map.",
+          "Coerces merged values into ctx.",
+          "Dispatches built-in or user command based on cli_parsing_output.command.",
+          "Transitions runtime_state.phase to 'shutdown' on completion or error."
+        ],
+        "interaction_with_ctx": [
+          "ctx is constructed during main() and stored in app.ctx.",
+          "Commands access runtime configuration exclusively through app.ctx."
+        ],
+        "error_handling": [
+          "Validation or parsing errors abort before command dispatch.",
+          "Uncaught command exceptions propagate unless framework intercepts them (future)."
+        ],
+        "return_value": "Returns whatever value the dispatched command returns (if any)."
+      },
+      "run": {
+        "signature": "run(command: string, options?: dict<option-key, json-value>) -> any",
+        "purpose": "Invoke an application command programmatically using main() execution pipeline.",
+        "behavior": [
+          "Validates that command exists in application.commands.",
+          "Validates that all option keys exist in application.options.",
+          "Constructs override_inputs.programmatic_overrides from options argument.",
+          "Injects command and overrides into override_inputs, bypassing CLI parsing.",
+          "Invokes main() starting at override merge stage.",
+          "Returns whatever value the command function returns."
+        ],
+        "persistence_rules": [
+          "Programmatic overrides do not modify raw_config_json.",
+          "Only explicit configuration commands persist values."
+        ],
+        "relation_to_main": "run() is a specialized entry path into main(); all validation, ctx construction, and dispatch semantics are owned by main()."
+      },
+      "write_json": {
+        "signature": "write_json(fileid, data)",
+        "description": "writes the data to the JSON file, per the configured formatting options, defaulting to pretty w/ indent=2; note that fileid is a logical name for the jsonfile, the position of which is specified by path.<fileid> in the config"
+      },
+      "read_json": {
+        "signature": "read_json(fileid)",
+        "description": "reads the JSON file at that logical fileid"
+      },
+      "declare_app": {
+        "signature": "declare_app('<name>', '<version>')",
+        "description": "declare the name and version of the application"
+      },
+      "describe_apphook": {
+        "signature": "describe_apphook('<one-line-description>')",
+        "description": "declare a short description for the app"
+      },
+      "describe_app": {
+        "signature": "describe_app('<description>')",
+        "description": "declare a lengthy description for the app"
+      },
+      "declare_projectdir": {
+        "signature": "declare_projectdir('<name-of-project-dir>')",
+        "description": "for example, it might be '.foo'"
+      },
+      "declare_cmd": {
+        "signature": "declare_cmd('<cmd>', nullary_fn)",
+        "description": "bind a command string to a command objet in the application, so that the function will be called when handling that command"
+      },
+      "describe_cmdhook": {
+        "signature": "describe_cmdhook('<cmd>', '<short-1-line-description>')",
+        "description": "declare a short description for the command"
+      },
+      "describe_cmd": {
+        "signature": "describe_cmd('<cmd>', '<description>')",
+        "description": "declare a lengthy description for the command"
+      },
+      "declare_key": {
+        "signature": "declare_key('<key>')",
+        "description": "declare a valid configuration key"
+      },
+      "describe_keyhook": {
+        "signature": "describe_keyhook('<key>', '<short-1-line-description>')",
+        "description": "declare a short description for the key"
+      },
+      "declare": {
+        "signature": "declare({...})",
+        "description": "perform a mass declaration; this data is updated into the application definition"
+      }
+    }
+  },
+  "command_binding": {
+    "structure_declared_in": "declare(spec_dict)",
+    "function_binding_via": "declare_cmd(name, fn)",
+    "rationale": "Callable objects cannot be expressed in declarative specs; structure and behavior are bound separately."
+  },
+  "serialization_invariant": {
+    "scope": [
+      "ctx",
+      "raw_config_json",
+      "override_inputs"
+    ],
+    "rule": "All runtime data structures must have a lossless JSON-serializable logical representation.",
+    "exceptions": [
+      "application.commands.<command>.fn may contain callable values"
+    ],
+    "ctx_clarification": {
+      "logical_form": "ctx represents a JSON-compatible mapping of option-key to value.",
+      "runtime_form": "At runtime, ctx values may be coerced into richer types (e.g., pathlib.Path), provided an equivalent JSON representation exists.",
+      "implication": "ctx may be inspected, dumped, or transformed by tools using its logical JSON form, independent of runtime typing."
+    },
+    "rationale": [
+      "Supports inspection, debugging, and tooling",
+      "Enables future FileTalk- and Patchboard-style orchestration",
+      "Preserves a strict separation between declarative data and executable behavior"
+    ]
+  }
+}
