@@ -41,7 +41,7 @@ def resolve_execroot():
                 "execroot override provided but "
                 "application.flags.allow_execroot_override is false"
             )
-        set_execroot(cli_override)
+        set_execroot(Path(cli_override))
         return
 
     execroot = Path.cwd()

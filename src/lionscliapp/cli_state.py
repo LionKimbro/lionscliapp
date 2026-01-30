@@ -1,14 +1,17 @@
 
+# cli_state.py
 
-# Claude, this is a place-holder for future work.
-# We may rewire things, subtly, but this should work for now.
-# Don't write tests for this specific module!
-# This isn't what's going to be here in the future.
+g = {
+    "command": None,              # None | str
+    "options_file": None,         # None | str (path)
+    "execroot_override": None,    # None | str (path)
+}
 
-g = {"execroot_override": None}  # None or pathlib.Path
+option_overrides = {}  # dict[str, str]
+
 
 def reset_cli_state():
+    g["command"] = None
+    g["options_file"] = None
     g["execroot_override"] = None
-
-
-    
+    option_overrides.clear()
