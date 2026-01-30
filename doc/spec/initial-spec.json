@@ -230,9 +230,7 @@
         "id": {
           "required": [
             "name",
-            "version"
-          ],
-          "optional": [
+            "version",
             "short_desc",
             "long_desc"
           ],
@@ -270,9 +268,7 @@
           "type": "dict<option-key, option-schema>",
           "option-schema": {
             "required": [
-              "default"
-            ],
-            "optional": [
+              "default",
               "short",
               "long"
             ],
@@ -297,9 +293,7 @@
           "type": "dict<command-name, command-schema>",
           "command-schema": {
             "required": [
-              "fn"
-            ],
-            "optional": [
+              "fn",
               "short",
               "long"
             ],
@@ -790,10 +784,14 @@
           },
           "introspection_apis": {
             "category": "introspection_apis",
-            "meaning": "Read-only accessors that report framework or application state without mutating it.",
+            "meaning": "Read-only accessors that report framework or application state without mutating it. Includes both accessor functions and read-only globals.",
             "examples": [
+              "ctx",
               "get_phase"
-            ]
+            ],
+            "notes": {
+              "ctx": "The global ctx object may be read by user code during command execution. It contains the merged and coerced runtime configuration. User code should not mutate ctx."
+            }
           },
           "primary_entrypoints": {
             "category": "primary_entrypoints",
