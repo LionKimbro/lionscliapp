@@ -314,3 +314,29 @@ def _check_no_callables(value, path):
     elif isinstance(value, list):
         for i, item in enumerate(value):
             _check_no_callables(item, f"{path}[{i}]")
+
+
+def ensure_commands_bound():
+    """
+    Verify all declared commands have their fn field bound to a callable.
+
+    Called by main() before transitioning to running phase.
+
+    Raises:
+        RuntimeError: If any command has fn=None.
+    """
+    unbound = []
+    for cmd_name, cmd_schema in application["commands"].items():
+        if cmd_schema.get("fn") is None:
+            unbound.append(cmd_name)
+
+    if unbound:
+        cmd_list = ", ".join(repr(name) for name in sorted(unbound))
+        raise RuntimeError(
+            f"Commands with unbound fn: {cmd_list}. "
+            f"All commands must have fn bound before calling main()."
+        )
+
+
+reset_application()
+
