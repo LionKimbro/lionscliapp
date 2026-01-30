@@ -17,6 +17,7 @@ Usage:
 from lionscliapp import application as appmodel
 from lionscliapp import runtime_state
 from lionscliapp import resolve_execroot
+from lionscliapp.paths import ensure_project_root_exists
 
 
 def main():
@@ -28,7 +29,7 @@ def main():
     declaring -> running -> shutdown
 
     This minimal implementation:
-    - Does not perform IO
+    - Creates project directory if missing
     - Does not parse CLI arguments
     - Does not read configuration
     - Does not construct ctx
@@ -49,6 +50,9 @@ def main():
 
     # Resolve execution root
     resolve_execroot.resolve_execroot()
+
+    # Ensure project directory exists
+    ensure_project_root_exists()
 
     try:
         # No actual execution in this minimal version

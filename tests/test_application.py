@@ -31,10 +31,12 @@ def test_reset_application_sets_default_flags():
     assert flags["allow_execroot_override"] is True
 
 
-def test_reset_application_skeleton_validates():
-    """The empty skeleton from reset_application() passes validation."""
+def test_reset_application_skeleton_requires_project_dir():
+    """The empty skeleton from reset_application() requires project_dir to be set."""
     appmodel.reset_application()
-    appmodel.validate_application()  # Should not raise
+
+    with pytest.raises(ValueError, match="names.project_dir: must not be empty"):
+        appmodel.validate_application()
 
 
 def test_validate_application_raises_if_not_initialized():
@@ -93,6 +95,7 @@ def test_validate_application_catches_invalid_flag_type():
 def test_validate_application_accepts_valid_options():
     """validate_application() accepts properly structured options."""
     appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
     appmodel.application["options"]["path.scan"] = {
         "default": "/tmp",
         "short": "Scan path",
@@ -134,6 +137,7 @@ def test_validate_application_accepts_valid_commands():
         pass
 
     appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
     appmodel.application["commands"]["run"] = {
         "fn": my_cmd,
         "short": "Run the thing",
@@ -146,6 +150,7 @@ def test_validate_application_accepts_valid_commands():
 def test_validate_application_accepts_null_command_fn():
     """validate_application() accepts null fn (placeholder) in commands."""
     appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
     appmodel.application["commands"]["run"] = {
         "fn": None,
         "short": "Run the thing",
@@ -222,6 +227,7 @@ def test_validate_application_catches_callable_in_command_short():
 def test_validate_application_accepts_nested_json_in_option_default():
     """validate_application() accepts nested JSON structures in defaults."""
     appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
     appmodel.application["options"]["complex.option"] = {
         "default": {
             "nested": {

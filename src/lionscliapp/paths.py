@@ -44,3 +44,21 @@ def get_config_path():
     """
     return get_project_root() / "config.json"
 
+
+def ensure_project_root_exists():
+    """
+    Create the project directory if it does not exist.
+
+    Uses get_project_root() to determine the path, then creates the
+    directory (and any missing parents) if needed.
+
+    Returns:
+        Path: The project directory path
+
+    Raises:
+        RuntimeError: If execroot has not been initialized
+    """
+    project_root = get_project_root()
+    project_root.mkdir(parents=True, exist_ok=True)
+    return project_root
+

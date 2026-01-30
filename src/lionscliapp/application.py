@@ -151,6 +151,8 @@ def _validate_names():
         _errors.append("names.project_dir: missing required field")
     elif not isinstance(names_obj["project_dir"], str):
         _errors.append("names.project_dir: must be a string")
+    elif names_obj["project_dir"] == "":
+        _errors.append("names.project_dir: must not be empty")
 
 
 def _validate_flags():

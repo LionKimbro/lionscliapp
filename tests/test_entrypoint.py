@@ -15,12 +15,15 @@ def setup_function():
 
 # --- Phase transition tests ---
 
-def test_main_transitions_to_shutdown():
+def test_main_transitions_to_shutdown(tmp_path, monkeypatch):
     """main() transitions phase from declaring through running to shutdown."""
+    monkeypatch.chdir(tmp_path)
+
     def my_cmd():
         pass
 
     declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
     declarations.declare_cmd("run", my_cmd)
 
     assert runtime_state.get_phase() == "declaring"
@@ -30,8 +33,9 @@ def test_main_transitions_to_shutdown():
     assert runtime_state.get_phase() == "shutdown"
 
 
-def test_main_passes_through_running_phase():
+def test_main_passes_through_running_phase(tmp_path, monkeypatch):
     """main() transitions through running phase before shutdown."""
+    monkeypatch.chdir(tmp_path)
     phases_seen = []
 
     def capture_phase():
@@ -48,6 +52,7 @@ def test_main_passes_through_running_phase():
 
     try:
         declarations.declare_app("myapp", "1.0")
+        declarations.declare_projectdir(".myapp")
         declarations.declare_cmd("run", capture_phase)
         main()
     finally:
@@ -58,12 +63,15 @@ def test_main_passes_through_running_phase():
 
 # --- Mutation blocking tests ---
 
-def test_declarations_blocked_after_main():
+def test_declarations_blocked_after_main(tmp_path, monkeypatch):
     """Declarations are blocked after main() completes (shutdown phase)."""
+    monkeypatch.chdir(tmp_path)
+
     def my_cmd():
         pass
 
     declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
     declarations.declare_cmd("run", my_cmd)
 
     main()
@@ -87,6 +95,7 @@ def test_main_raises_on_invalid_application():
 def test_main_raises_on_unbound_command():
     """main() raises RuntimeError if a command has fn=None."""
     declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
     declarations.describe_cmd("run", "A command without fn bound")
     # Note: describe_cmd creates command but leaves fn=None
 
@@ -97,6 +106,7 @@ def test_main_raises_on_unbound_command():
 def test_main_raises_on_multiple_unbound_commands():
     """main() error message includes all unbound command names."""
     declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
     declarations.describe_cmd("build", "Build command")
     declarations.describe_cmd("deploy", "Deploy command")
 
