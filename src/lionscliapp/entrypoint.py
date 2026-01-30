@@ -21,6 +21,7 @@ from lionscliapp import runtime_state
 from lionscliapp import resolve_execroot
 from lionscliapp import cli_parsing
 from lionscliapp import config_io
+from lionscliapp.ctx import build_ctx
 from lionscliapp.paths import ensure_project_root_exists
 
 
@@ -32,11 +33,11 @@ def main():
     then transitions through the execution lifecycle:
     declaring -> running -> shutdown
 
-    This minimal implementation:
+    This implementation:
     - Parses CLI arguments into cli_state
     - Creates project directory if missing
-    - Does not read configuration
-    - Does not construct ctx
+    - Loads raw_config from disk
+    - Constructs ctx (merges defaults, config, CLI overrides; coerces by namespace)
 
     Raises:
         ValueError: If application validation fails.
@@ -63,7 +64,10 @@ def main():
 
     # Load raw config (disk -> raw_config)
     config_io.load_config()
-    
+
+    # Build ctx (merge layers, coerce by namespace)
+    build_ctx()
+
     try:
         # No actual execution in this minimal version
         pass
