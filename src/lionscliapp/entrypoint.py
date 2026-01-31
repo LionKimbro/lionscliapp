@@ -97,6 +97,7 @@ def _startup():
 
         # Ingest CLI arguments
         cli_parsing.ingest_argv(sys.argv[1:])
+        cli_parsing.interpret_arguments()
 
         # Transition to running
         runtime_state.transition_to_running()
