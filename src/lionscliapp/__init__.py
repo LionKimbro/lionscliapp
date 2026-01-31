@@ -14,6 +14,7 @@ from lionscliapp import cli_state
 from lionscliapp import override_inputs
 from lionscliapp import ctx as ctx_module
 from lionscliapp import dispatch
+from lionscliapp import builtins
 
 from lionscliapp.ctx import ctx
 

@@ -4,11 +4,11 @@ dispatch: Command dispatch logic.
 This module resolves the command name from CLI state and invokes the
 corresponding command function.
 
-Command resolution rules:
-    - If command is None or "", look for a registered "" command
-    - If no "" command registered, execute no-command fallback (help display)
-    - Otherwise, look up command in application["commands"]
-    - Unknown commands raise DispatchError
+Command resolution order:
+    1. Built-in commands (set, get, help) - always checked first
+    2. User-declared commands in application["commands"]
+    3. No-command case: registered "" command or fallback help
+    4. Unknown command: raises DispatchError
 
 Exit codes (from spec):
     - 0: Command executed successfully
@@ -18,6 +18,7 @@ Exit codes (from spec):
 
 from lionscliapp import application as appmodel
 from lionscliapp import cli_state
+from lionscliapp import builtins
 
 
 class DispatchError(Exception):
@@ -29,8 +30,11 @@ def dispatch_command():
     """
     Dispatch to the appropriate command function.
 
-    Resolves the command from cli_state, looks it up in application["commands"],
-    and calls the bound function.
+    Resolution order:
+        1. Built-in commands (set, get, help)
+        2. User-declared commands
+        3. No-command fallback (if command is "")
+        4. DispatchError (unknown command)
 
     Returns:
         Whatever the command function returns.
@@ -44,9 +48,12 @@ def dispatch_command():
     if command is None:
         command = ""
 
-    commands = appmodel.application["commands"]
+    # Check built-in commands first
+    if builtins.is_builtin(command):
+        return builtins.run_builtin(command)
 
-    # Check if command exists
+    # Check user-declared commands
+    commands = appmodel.application["commands"]
     if command in commands:
         fn = commands[command]["fn"]
         return fn()
