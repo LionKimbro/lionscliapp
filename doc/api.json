@@ -1,0 +1,258 @@
+{
+  "name": "lionscliapp",
+  "version": "0.1.0",
+  "description": "A humane CLI application framework for Python",
+  "import": "import lionscliapp as app",
+  "lifecycle_phases": [
+    {
+      "phase": "declaring",
+      "description": "Initial state. Declarations are permitted. Ends when app.main() is called."
+    },
+    {
+      "phase": "running",
+      "description": "Application is executing. Structural mutation forbidden."
+    },
+    {
+      "phase": "shutdown",
+      "description": "Program is terminating."
+    }
+  ],
+  "declaration_functions": [
+    {
+      "name": "declare_app",
+      "signature": "declare_app(name, version)",
+      "description": "Declare the application name and version.",
+      "parameters": [
+        {"name": "name", "type": "str", "description": "Application name"},
+        {"name": "version", "type": "str", "description": "Application version"}
+      ],
+      "example": "app.declare_app(\"mytool\", \"1.0\")"
+    },
+    {
+      "name": "describe_app",
+      "signature": "describe_app(description, flags=\"\")",
+      "description": "Set a short or long description for the application.",
+      "parameters": [
+        {"name": "description", "type": "str", "description": "Description text"},
+        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+      ],
+      "example": "app.describe_app(\"A tool that does useful things\")"
+    },
+    {
+      "name": "declare_projectdir",
+      "signature": "declare_projectdir(name)",
+      "description": "Declare the project directory name for persistent configuration.",
+      "parameters": [
+        {"name": "name", "type": "str", "description": "Directory name (e.g., \".mytool\")"}
+      ],
+      "notes": "The project directory is created under the execution root and stores config.json.",
+      "example": "app.declare_projectdir(\".mytool\")"
+    },
+    {
+      "name": "declare_cmd",
+      "signature": "declare_cmd(name, fn)",
+      "description": "Bind a command name to a callable function.",
+      "parameters": [
+        {"name": "name", "type": "str", "description": "Command name, or \"\" for no-command dispatch"},
+        {"name": "fn", "type": "callable", "description": "Function to execute when command is invoked"}
+      ],
+      "example": "app.declare_cmd(\"run\", run_command)"
+    },
+    {
+      "name": "describe_cmd",
+      "signature": "describe_cmd(name, description, flags=\"\")",
+      "description": "Set a short or long description for a command.",
+      "parameters": [
+        {"name": "name", "type": "str", "description": "Command name"},
+        {"name": "description", "type": "str", "description": "Description text"},
+        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+      ],
+      "example": "app.describe_cmd(\"run\", \"Run the main process\")"
+    },
+    {
+      "name": "declare_key",
+      "signature": "declare_key(key, default)",
+      "description": "Declare a configuration key with its default value.",
+      "parameters": [
+        {"name": "key", "type": "str", "description": "Dot-namespaced option key (e.g., \"path.output\")"},
+        {"name": "default", "type": "any", "description": "Default value (must be JSON-serializable)"}
+      ],
+      "example": "app.declare_key(\"path.output\", \"/tmp/output\")"
+    },
+    {
+      "name": "describe_key",
+      "signature": "describe_key(key, description, flags=\"\")",
+      "description": "Set a short or long description for a configuration key.",
+      "parameters": [
+        {"name": "key", "type": "str", "description": "Option key"},
+        {"name": "description", "type": "str", "description": "Description text"},
+        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+      ],
+      "example": "app.describe_key(\"path.output\", \"Output file path\")"
+    },
+    {
+      "name": "declare",
+      "signature": "declare(spec)",
+      "description": "Mass declaration by deep-merging a specification dict into the application.",
+      "parameters": [
+        {"name": "spec", "type": "dict", "description": "Dictionary to merge into the application model"}
+      ],
+      "merge_semantics": {
+        "dicts": "Merged recursively by key",
+        "scalars": "Last value wins"
+      },
+      "example": "app.declare({\"id\": {\"name\": \"mytool\", \"version\": \"1.0\"}})"
+    }
+  ],
+  "entrypoint": {
+    "name": "main",
+    "signature": "main()",
+    "description": "Start the application lifecycle.",
+    "steps": [
+      "Validates the application model",
+      "Parses CLI arguments",
+      "Resolves execution root",
+      "Creates project directory if needed",
+      "Loads persistent configuration",
+      "Builds the runtime context (ctx)",
+      "Dispatches to the appropriate command"
+    ],
+    "exit_codes": [
+      {"code": 0, "meaning": "Command executed successfully"},
+      {"code": 1, "meaning": "Validation, configuration, or CLI parsing error"},
+      {"code": 2, "meaning": "Unknown command or unbound command function"},
+      {"code": 3, "meaning": "Uncaught exception during command execution"}
+    ]
+  },
+  "runtime_context": {
+    "name": "ctx",
+    "type": "dict",
+    "description": "Dictionary containing merged configuration values, accessible during command execution.",
+    "access": "app.ctx[\"key\"]",
+    "merge_order": [
+      "Declared defaults",
+      "Config file (config.json)",
+      "Options file (--options-file)",
+      "CLI overrides (--key value)"
+    ],
+    "namespace_coercion": [
+      {
+        "namespace": "path.*",
+        "coercion": "pathlib.Path",
+        "notes": "expanduser applied, relative paths resolved against execroot"
+      },
+      {
+        "namespace": "json.rendering.*",
+        "coercion": "enum",
+        "allowed_values": ["pretty", "compact"]
+      },
+      {
+        "namespace": "json.indent.*",
+        "coercion": "int",
+        "constraints": ">= 0"
+      },
+      {
+        "namespace": "(other)",
+        "coercion": "identity",
+        "notes": "No coercion applied"
+      }
+    ],
+    "example": "output_path = app.ctx[\"path.output\"]  # Returns pathlib.Path"
+  },
+  "introspection": [
+    {
+      "name": "get_phase",
+      "signature": "get_phase()",
+      "description": "Return the current execution phase.",
+      "returns": "str",
+      "possible_values": ["declaring", "running", "shutdown"],
+      "example": "phase = app.get_phase()"
+    }
+  ],
+  "utility_functions": [
+    {
+      "name": "reset",
+      "signature": "reset()",
+      "description": "Reset all global framework state to the initial declaring-ready state.",
+      "use_cases": ["Tests", "REPL use", "Controlled development workflows"],
+      "example": "app.reset()"
+    }
+  ],
+  "exceptions": [
+    {
+      "name": "StartupError",
+      "import": "from lionscliapp import StartupError",
+      "description": "Raised for validation, configuration, or CLI parsing errors during startup."
+    },
+    {
+      "name": "DispatchError",
+      "import": "from lionscliapp import DispatchError",
+      "description": "Raised when command dispatch fails (unknown command, unbound function)."
+    }
+  ],
+  "builtin_commands": [
+    {
+      "name": "set",
+      "usage": "set <key> <value>",
+      "description": "Persist a configuration value to config.json.",
+      "example": "mytool set path.output /new/path"
+    },
+    {
+      "name": "get",
+      "usage": "get <key>",
+      "description": "Display the current value of a configuration key.",
+      "example": "mytool get path.output"
+    },
+    {
+      "name": "help",
+      "usage": "help",
+      "description": "Display application help (name, version, description, available commands).",
+      "example": "mytool help"
+    }
+  ],
+  "cli_options": [
+    {
+      "syntax": "--<key> <value>",
+      "description": "Override a configuration value for this invocation (not persisted).",
+      "example": "mytool --path.output /tmp run"
+    },
+    {
+      "syntax": "--options-file <path>",
+      "description": "Load configuration overrides from a JSON file.",
+      "example": "mytool --options-file overrides.json run"
+    },
+    {
+      "syntax": "--execroot <path>",
+      "description": "Override the execution root directory.",
+      "example": "mytool --execroot /other/project run"
+    }
+  ],
+  "typical_usage_pattern": {
+    "description": "Standard pattern for creating a CLI application with lionscliapp",
+    "code": [
+      "import lionscliapp as app",
+      "",
+      "# Declare identity",
+      "app.declare_app(\"mytool\", \"1.0\")",
+      "app.describe_app(\"A tool that does useful things\")",
+      "",
+      "# Declare project directory",
+      "app.declare_projectdir(\".mytool\")",
+      "",
+      "# Declare configuration keys",
+      "app.declare_key(\"path.output\", \"/tmp/output\")",
+      "app.declare_key(\"json.indent.data\", 2)",
+      "",
+      "# Define commands",
+      "def run_command():",
+      "    output = app.ctx[\"path.output\"]",
+      "    print(f\"Output: {output}\")",
+      "",
+      "app.declare_cmd(\"run\", run_command)",
+      "app.describe_cmd(\"run\", \"Run the main process\")",
+      "",
+      "# Start application",
+      "app.main()"
+    ]
+  }
+}
