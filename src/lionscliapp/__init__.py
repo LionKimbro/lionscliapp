@@ -13,11 +13,13 @@ from lionscliapp import config_io
 from lionscliapp import cli_state
 from lionscliapp import override_inputs
 from lionscliapp import ctx as ctx_module
+from lionscliapp import dispatch
 
 from lionscliapp.ctx import ctx
 
 from lionscliapp.runtime_state import get_phase
-from lionscliapp.entrypoint import main
+from lionscliapp.entrypoint import main, StartupError
+from lionscliapp.dispatch import DispatchError
 from lionscliapp.declarations import (
     declare_app,
     describe_app,

@@ -84,38 +84,119 @@ def test_declarations_blocked_after_main(tmp_path, monkeypatch):
         declarations.declare_app("another", "2.0")
 
 
-# --- Validation tests ---
+# --- Exit code 1: Validation, configuration, CLI parsing errors ---
 
-def test_main_raises_on_invalid_application():
-    """main() raises ValueError if application is invalid."""
+def test_main_exits_code_1_on_invalid_application():
+    """main() exits with code 1 if application is invalid."""
     # Application not properly set up (missing required fields)
     appmodel.application.clear()
     appmodel.application["id"] = {}  # Invalid: missing required fields
 
-    with pytest.raises((ValueError, RuntimeError)):
+    with pytest.raises(SystemExit) as exc_info:
         main()
 
+    assert exc_info.value.code == 1
 
-def test_main_raises_on_unbound_command():
-    """main() raises RuntimeError if a command has fn=None."""
+
+def test_main_exits_code_1_on_unbound_command():
+    """main() exits with code 1 if a command has fn=None."""
     declarations.declare_app("myapp", "1.0")
     declarations.declare_projectdir(".myapp")
     declarations.describe_cmd("run", "A command without fn bound")
-    # Note: describe_cmd creates command but leaves fn=None
 
-    with pytest.raises(RuntimeError, match="unbound fn"):
+    with pytest.raises(SystemExit) as exc_info:
         main()
 
+    assert exc_info.value.code == 1
 
-def test_main_raises_on_multiple_unbound_commands():
-    """main() error message includes all unbound command names."""
+
+def test_main_exits_code_1_on_cli_parsing_error(monkeypatch):
+    """main() exits with code 1 on CLI parsing error."""
+    monkeypatch.setattr(sys, "argv", ["myapp", "--missing-value"])
+
+    def my_cmd():
+        pass
+
     declarations.declare_app("myapp", "1.0")
     declarations.declare_projectdir(".myapp")
-    declarations.describe_cmd("build", "Build command")
-    declarations.describe_cmd("deploy", "Deploy command")
+    declarations.declare_cmd("run", my_cmd)
 
-    with pytest.raises(RuntimeError, match="'build'.*'deploy'|'deploy'.*'build'"):
+    with pytest.raises(SystemExit) as exc_info:
         main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_exits_code_1_on_invalid_config(tmp_path, monkeypatch):
+    """main() exits with code 1 if config.json is invalid."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp", "run"])
+
+    # Create invalid config file
+    project_dir = tmp_path / ".myapp"
+    project_dir.mkdir()
+    config_path = project_dir / "config.json"
+    config_path.write_text("not valid json")
+
+    def my_cmd():
+        pass
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.declare_cmd("run", my_cmd)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_exits_code_1_on_invalid_options_file(tmp_path, monkeypatch):
+    """main() exits with code 1 if --options-file contains invalid JSON."""
+    monkeypatch.chdir(tmp_path)
+
+    # Create invalid options file
+    opts_file = tmp_path / "opts.json"
+    opts_file.write_text("{invalid json}")
+
+    monkeypatch.setattr(sys, "argv", ["myapp", "--options-file", str(opts_file), "run"])
+
+    def my_cmd():
+        pass
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.declare_cmd("run", my_cmd)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_exits_code_1_on_coercion_error(tmp_path, monkeypatch):
+    """main() exits with code 1 if value coercion fails."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp", "--json.indent.foo", "not-a-number", "run"])
+
+    def my_cmd():
+        pass
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.declare_key("json.indent.foo", 2)
+    declarations.declare_cmd("run", my_cmd)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_startup_error_is_exported():
+    """StartupError is accessible from main package."""
+    from lionscliapp.entrypoint import StartupError
+    assert app.StartupError is StartupError
 
 
 # --- ensure_commands_bound tests ---
