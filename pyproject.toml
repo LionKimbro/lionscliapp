@@ -7,6 +7,23 @@ name = "lionscliapp"
 version = "0.1.0"
 description = "A humane CLI application framework"
 requires-python = ">=3.10"
+authors = [
+    {name = "Lion Kimbro", email = "lionkimbro@gmail.com"}
+]
+license = {text = "CC0-1.0"}
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/LionKimbro/lionscliapp"
+Repository = "https://github.com/LionKimbro/lionscliapp"
 
 [tool.setuptools.packages.find]
 where = ["src"]
