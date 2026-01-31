@@ -270,6 +270,14 @@ Display the current value of a configuration key.
 mytool get path.output
 ```
 
+### `keys`
+
+List all declared configuration keys with their short descriptions.
+
+```bash
+mytool keys
+```
+
 ### `help`
 
 Display application help (name, version, description, available commands).

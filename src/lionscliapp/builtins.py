@@ -4,6 +4,7 @@ builtins: Built-in command implementations.
 Built-in commands are:
     set <key> <value>   - Persist a configuration value
     get <key>           - Display a configuration value
+    keys                - List all configuration keys
     help [command]      - Show help for commands and options
 
 Built-in commands are checked before user-declared commands and cannot
@@ -16,7 +17,7 @@ from lionscliapp import config_io
 from lionscliapp.ctx import ctx, _coerce_value
 
 
-BUILTIN_COMMANDS = frozenset({"set", "get", "help"})
+BUILTIN_COMMANDS = frozenset({"set", "get", "help", "keys"})
 
 
 def is_builtin(command: str) -> bool:
@@ -40,6 +41,8 @@ def run_builtin(command: str):
         return cmd_get()
     elif command == "help":
         return cmd_help()
+    elif command == "keys":
+        return cmd_keys()
 
 
 # =============================================================================
@@ -175,6 +178,17 @@ def _show_builtin_help(command: str):
         print("  help")
         print("  help set")
 
+    elif command == "keys":
+        print("keys")
+        print()
+        print("List all declared configuration keys.")
+        print()
+        print("Shows each key with its short description. Use 'get <key>'")
+        print("to see the current value of a specific key.")
+        print()
+        print("Example:")
+        print("  keys")
+
 
 def _show_user_command_help(name: str, cmd_schema: dict):
     """Show help for a user-declared command."""
@@ -218,6 +232,7 @@ def _show_general_help():
     print("Built-in commands:")
     print(f"  {'set <key> <value>':24} Persist a configuration value")
     print(f"  {'get <key>':24} Display a configuration value")
+    print(f"  {'keys':24} List all configuration keys")
     print(f"  {'help [command]':24} Show this help")
 
     # User commands
@@ -245,6 +260,30 @@ def _show_general_help():
                 print(f"  {opt_key:24} {short} (default: {default!r})")
             else:
                 print(f"  {opt_key:24} (default: {default!r})")
+
+
+# =============================================================================
+# keys command
+# =============================================================================
+
+def cmd_keys():
+    """
+    List all declared configuration keys with their short descriptions.
+    """
+    options = appmodel.application["options"]
+
+    if not options:
+        print("No options are declared for this application.")
+        return
+
+    print("Configuration keys:")
+    for key, opt_schema in sorted(options.items()):
+        short = opt_schema.get("short") or ""
+        default = opt_schema["default"]
+        if short:
+            print(f"  {key:24} {short}")
+        else:
+            print(f"  {key:24} (default: {default!r})")
 
 
 # =============================================================================

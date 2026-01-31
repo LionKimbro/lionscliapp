@@ -13,7 +13,7 @@ A humane CLI application framework for Python.
   - `path.*` → `pathlib.Path`
   - `json.rendering.*` → enum (`"pretty"`, `"compact"`)
   - `json.indent.*` → integer ≥ 0
-- **Built-in Commands** — `set`, `get`, and `help` provided out of the box
+- **Built-in Commands** — `set`, `get`, `keys`, and `help` provided out of the box
 - **Two-Phase CLI Parsing** — Framework options parsed separately from command arguments
 - **JSON as Universal Substrate** — All declarative data is JSON-serializable
 
@@ -61,6 +61,9 @@ mytool help
 
 # Run a user-defined command
 mytool run
+
+# List all configuration keys
+mytool keys
 
 # Set a persistent config value
 mytool set path.output /new/path

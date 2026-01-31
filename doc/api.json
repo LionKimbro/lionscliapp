@@ -204,6 +204,12 @@
       "example": "mytool get path.output"
     },
     {
+      "name": "keys",
+      "usage": "keys",
+      "description": "List all declared configuration keys with their short descriptions.",
+      "example": "mytool keys"
+    },
+    {
       "name": "help",
       "usage": "help",
       "description": "Display application help (name, version, description, available commands).",
