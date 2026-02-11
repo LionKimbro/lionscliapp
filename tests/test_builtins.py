@@ -47,7 +47,7 @@ def test_is_builtin_unknown():
 
 
 def test_builtin_commands_constant():
-    assert BUILTIN_COMMANDS == {"set", "get", "help"}
+    assert BUILTIN_COMMANDS == {"set", "get", "help", "keys"}
 
 
 # =============================================================================

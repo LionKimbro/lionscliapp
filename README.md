@@ -90,7 +90,7 @@ src/lionscliapp/
 ├── declarations.py    # Declaration API (declare_app, declare_cmd, etc.)
 ├── entrypoint.py      # Main entry point and lifecycle
 ├── dispatch.py        # Command dispatch
-├── builtins.py        # Built-in commands (set, get, help)
+├── builtins.py        # Built-in commands (set, get, keys, help)
 ├── ctx.py             # Runtime context construction
 ├── cli_parsing.py     # Two-phase CLI parsing
 ├── config_io.py       # Config file I/O
@@ -109,7 +109,7 @@ Core framework is complete with:
 - Configuration layering and persistence
 - Type coercion
 
-Future plans include programmatic invocation (`app.run()`), interactive config editing, and extensible namespace registration.
+Future plans include programmatic invocation (`app.run()`) (maybe), interactive config editing (likely), and extensible namespace registration.
 
 ## License
 

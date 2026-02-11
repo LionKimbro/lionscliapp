@@ -281,6 +281,25 @@ def test_coerce_path_non_string_raises(tmp_path):
         os.chdir(original_cwd)
 
 
+def test_coerce_path_none_allows_none(tmp_path):
+    """path.* allows None and keeps it as None."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["path.output"] = {"default": None, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert ctx["path.output"] is None
+    finally:
+        os.chdir(original_cwd)
+
+
 def test_coerce_path_deep_namespace(tmp_path):
     """path.* coercion works for deeply nested keys like path.output.inventory."""
     application["names"]["project_dir"] = ".myproject"

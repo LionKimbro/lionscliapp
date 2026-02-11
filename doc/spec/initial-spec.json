@@ -2,7 +2,8 @@
   "document": {
     "document_id": "lionscliapp.initial-spec.v0_3",
     "version": "0.3",
-    "title": "Lion's CLI App framework -- Initial Specification"
+    "title": "Lion's CLI App framework -- Initial Specification",
+    "purpose": "Primary specification for lionscliapp."
   },
   "system": {
     "name": "lionscliapp",
@@ -216,10 +217,23 @@
       ]
     },
     "execroot": {
-      "role": "Resolved execution root directory.",
+      "role": "Resolved execution root directory used to locate the project directory.",
       "persistence": "Not written to disk.",
-      "lifetime": "Valid only for duration of app.main().",
-      "type": "pathlib.Path"
+      "lifetime": "Valid only during a single app.main() invocation.",
+      "type": "filesystem path",
+      "runtime_representation": "pathlib.Path",
+      "logical_representation": "absolute path string",
+      "initial_value": null,
+      "set_by": "resolve_execroot() during app.main() startup",
+      "read_by": [
+        "project_directory resolution",
+        "config loading",
+        "tools needing execution context"
+      ],
+      "mutation_rules": [
+        "May be set exactly once per invocation.",
+        "Must not be modified after initialization."
+      ]
     },
     "application": {
       "role": "Program-declared contract defining identity, configuration schema, and supported commands.",
@@ -769,6 +783,10 @@
       "declare": {
         "signature": "declare({...})",
         "description": "perform a mass declaration; this data is updated into the application definition"
+      },
+      "resolve_path": {
+        "signature": "resolve_path(fileid)",
+        "description": "return the pathlib.Path to the file at the logical fileid"
       }
     },
     "api_surface_doctrine": {

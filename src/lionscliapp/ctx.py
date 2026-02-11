@@ -140,6 +140,8 @@ def _coerce_path(key, value):
     Raises:
         ValueError: If value is not a valid path string.
     """
+    if value is None:
+        return None
     if not isinstance(value, str):
         raise ValueError(
             f"Option {key!r}: path value must be a string, got {type(value).__name__}"

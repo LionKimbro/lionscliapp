@@ -1,6 +1,10 @@
 {
-  "name": "lionscliapp",
-  "version": "0.1.0",
+  "document": {
+    "document_id": "lionscliapp.api.v1",
+    "title": "Lion's CLI App (lionscliapp) API Documentation",
+    "purpose": "document how to use Lion's CLI App",
+    "version": "0.1.0"
+  },
   "description": "A humane CLI application framework for Python",
   "import": "import lionscliapp as app",
   "lifecycle_phases": [
@@ -23,8 +27,16 @@
       "signature": "declare_app(name, version)",
       "description": "Declare the application name and version.",
       "parameters": [
-        {"name": "name", "type": "str", "description": "Application name"},
-        {"name": "version", "type": "str", "description": "Application version"}
+        {
+          "name": "name",
+          "type": "str",
+          "description": "Application name"
+        },
+        {
+          "name": "version",
+          "type": "str",
+          "description": "Application version"
+        }
       ],
       "example": "app.declare_app(\"mytool\", \"1.0\")"
     },
@@ -33,8 +45,16 @@
       "signature": "describe_app(description, flags=\"\")",
       "description": "Set a short or long description for the application.",
       "parameters": [
-        {"name": "description", "type": "str", "description": "Description text"},
-        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+        {
+          "name": "description",
+          "type": "str",
+          "description": "Description text"
+        },
+        {
+          "name": "flags",
+          "type": "str",
+          "description": "\"\" or \"s\" for short (default), \"l\" for long"
+        }
       ],
       "example": "app.describe_app(\"A tool that does useful things\")"
     },
@@ -43,7 +63,11 @@
       "signature": "declare_projectdir(name)",
       "description": "Declare the project directory name for persistent configuration.",
       "parameters": [
-        {"name": "name", "type": "str", "description": "Directory name (e.g., \".mytool\")"}
+        {
+          "name": "name",
+          "type": "str",
+          "description": "Directory name (e.g., \".mytool\")"
+        }
       ],
       "notes": "The project directory is created under the execution root and stores config.json.",
       "example": "app.declare_projectdir(\".mytool\")"
@@ -53,8 +77,16 @@
       "signature": "declare_cmd(name, fn)",
       "description": "Bind a command name to a callable function.",
       "parameters": [
-        {"name": "name", "type": "str", "description": "Command name, or \"\" for no-command dispatch"},
-        {"name": "fn", "type": "callable", "description": "Function to execute when command is invoked"}
+        {
+          "name": "name",
+          "type": "str",
+          "description": "Command name, or \"\" for no-command dispatch"
+        },
+        {
+          "name": "fn",
+          "type": "callable",
+          "description": "Function to execute when command is invoked"
+        }
       ],
       "example": "app.declare_cmd(\"run\", run_command)"
     },
@@ -63,9 +95,21 @@
       "signature": "describe_cmd(name, description, flags=\"\")",
       "description": "Set a short or long description for a command.",
       "parameters": [
-        {"name": "name", "type": "str", "description": "Command name"},
-        {"name": "description", "type": "str", "description": "Description text"},
-        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+        {
+          "name": "name",
+          "type": "str",
+          "description": "Command name"
+        },
+        {
+          "name": "description",
+          "type": "str",
+          "description": "Description text"
+        },
+        {
+          "name": "flags",
+          "type": "str",
+          "description": "\"\" or \"s\" for short (default), \"l\" for long"
+        }
       ],
       "example": "app.describe_cmd(\"run\", \"Run the main process\")"
     },
@@ -74,8 +118,16 @@
       "signature": "declare_key(key, default)",
       "description": "Declare a configuration key with its default value.",
       "parameters": [
-        {"name": "key", "type": "str", "description": "Dot-namespaced option key (e.g., \"path.output\")"},
-        {"name": "default", "type": "any", "description": "Default value (must be JSON-serializable)"}
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Dot-namespaced option key (e.g., \"path.output\")"
+        },
+        {
+          "name": "default",
+          "type": "any",
+          "description": "Default value (must be JSON-serializable)"
+        }
       ],
       "example": "app.declare_key(\"path.output\", \"/tmp/output\")"
     },
@@ -84,9 +136,21 @@
       "signature": "describe_key(key, description, flags=\"\")",
       "description": "Set a short or long description for a configuration key.",
       "parameters": [
-        {"name": "key", "type": "str", "description": "Option key"},
-        {"name": "description", "type": "str", "description": "Description text"},
-        {"name": "flags", "type": "str", "description": "\"\" or \"s\" for short (default), \"l\" for long"}
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Option key"
+        },
+        {
+          "name": "description",
+          "type": "str",
+          "description": "Description text"
+        },
+        {
+          "name": "flags",
+          "type": "str",
+          "description": "\"\" or \"s\" for short (default), \"l\" for long"
+        }
       ],
       "example": "app.describe_key(\"path.output\", \"Output file path\")"
     },
@@ -95,7 +159,11 @@
       "signature": "declare(spec)",
       "description": "Mass declaration by deep-merging a specification dict into the application.",
       "parameters": [
-        {"name": "spec", "type": "dict", "description": "Dictionary to merge into the application model"}
+        {
+          "name": "spec",
+          "type": "dict",
+          "description": "Dictionary to merge into the application model"
+        }
       ],
       "merge_semantics": {
         "dicts": "Merged recursively by key",
@@ -118,10 +186,22 @@
       "Dispatches to the appropriate command"
     ],
     "exit_codes": [
-      {"code": 0, "meaning": "Command executed successfully"},
-      {"code": 1, "meaning": "Validation, configuration, or CLI parsing error"},
-      {"code": 2, "meaning": "Unknown command or unbound command function"},
-      {"code": 3, "meaning": "Uncaught exception during command execution"}
+      {
+        "code": 0,
+        "meaning": "Command executed successfully"
+      },
+      {
+        "code": 1,
+        "meaning": "Validation, configuration, or CLI parsing error"
+      },
+      {
+        "code": 2,
+        "meaning": "Unknown command or unbound command function"
+      },
+      {
+        "code": 3,
+        "meaning": "Uncaught exception during command execution"
+      }
     ]
   },
   "runtime_context": {
@@ -144,7 +224,10 @@
       {
         "namespace": "json.rendering.*",
         "coercion": "enum",
-        "allowed_values": ["pretty", "compact"]
+        "allowed_values": [
+          "pretty",
+          "compact"
+        ]
       },
       {
         "namespace": "json.indent.*",
@@ -165,7 +248,11 @@
       "signature": "get_phase()",
       "description": "Return the current execution phase.",
       "returns": "str",
-      "possible_values": ["declaring", "running", "shutdown"],
+      "possible_values": [
+        "declaring",
+        "running",
+        "shutdown"
+      ],
       "example": "phase = app.get_phase()"
     }
   ],
@@ -174,7 +261,11 @@
       "name": "reset",
       "signature": "reset()",
       "description": "Reset all global framework state to the initial declaring-ready state.",
-      "use_cases": ["Tests", "REPL use", "Controlled development workflows"],
+      "use_cases": [
+        "Tests",
+        "REPL use",
+        "Controlled development workflows"
+      ],
       "example": "app.reset()"
     }
   ],
