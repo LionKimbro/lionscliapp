@@ -1,0 +1,200 @@
+{
+  "document": {
+    "document_id": "lionscliapp.spec-addendum.read-write-json",
+    "title": "lionscliapp Spec Addendum: read/write_json",
+    "purpose": "Explicate how read_json and write_json shall work now. Overrules the initial spec.",
+    "implementation_notes": [
+      "Implemented in src/lionscliapp/json_io.py",
+      "Path resolution delegated to get_path() in src/lionscliapp/paths.py",
+      "Both functions exported from lionscliapp.__init__"
+    ]
+  },
+  "api": {
+    "module_functions": {
+      "get_path": {
+        "signature": "get_path(id: str, mode: str = 'c') -> Path",
+        "purpose": "Resolve a path using the specified mode flag.",
+        "location": "lionscliapp.paths",
+        "description": [
+          "Central path resolution function used by read_json and write_json.",
+          "Exported as public API via lionscliapp.__init__."
+        ],
+        "modes": {
+          "c": {
+            "name": "configured",
+            "meaning": "Resolve via ctx['path.<id>'].",
+            "raises": "KeyError if path.<id> is not declared in ctx."
+          },
+          "p": {
+            "name": "project",
+            "meaning": "Resolve relative to project root directory (<execroot>/<project_dir>).",
+            "note": "Returns id unchanged if already absolute."
+          },
+          "e": {
+            "name": "execution_root",
+            "meaning": "Resolve relative to execution root.",
+            "note": "Returns id unchanged if already absolute."
+          },
+          "f": {
+            "name": "filesystem",
+            "meaning": "Treat id as literal filesystem path (cwd-relative if not absolute).",
+            "note": "Returns id unchanged if already absolute."
+          }
+        },
+        "errors": [
+          "ValueError if mode is not one of: c, p, e, f",
+          "KeyError if mode is 'c' and path.<id> is not in ctx"
+        ]
+      },
+      "write_json": {
+        "signature": "write_json(id: str, data: any, mode: str = 'c') -> None",
+        "purpose": "Serialize data as JSON and write it to a filesystem path resolved via get_path().",
+        "description": [
+          "write_json resolves the target path using get_path(id, path_mode).",
+          "The mode string may include one path resolution flag and optionally one formatting flag.",
+          "Path resolution semantics are owned by get_path().",
+          "Formatting flags affect JSON serialization only and do not influence path resolution."
+        ],
+        "mode_flags": {
+          "grammar": "mode ::= {path_flag}{optional_format_flag} (order independent; set-based)",
+          "constraints": [
+            "Exactly one path flag must be present.",
+            "At most one formatting flag may be present.",
+            "Unknown or duplicate flags raise ValueError."
+          ],
+          "path_flags": {
+            "c": {
+              "name": "configured",
+              "meaning": "Resolve path via ctx['path.<id>'].",
+              "reference": "See api.module_functions.get_path"
+            },
+            "p": {
+              "name": "project",
+              "meaning": "Resolve relative to project root directory.",
+              "reference": "See api.module_functions.get_path"
+            },
+            "e": {
+              "name": "execution_root",
+              "meaning": "Resolve relative to execution root.",
+              "reference": "See api.module_functions.get_path"
+            },
+            "f": {
+              "name": "filesystem",
+              "meaning": "Treat id as literal filesystem path (cwd-relative if not absolute).",
+              "reference": "See api.module_functions.get_path"
+            }
+          },
+          "format_flags": {
+            "0": {
+              "name": "compact",
+              "meaning": "Serialize JSON using compact formatting (no whitespace, separators=(',', ':'))."
+            },
+            "2": {
+              "name": "pretty_indent_2",
+              "meaning": "Serialize JSON using pretty printing with indent=2."
+            }
+          }
+        },
+        "formatting_resolution": {
+          "description": "Formatting is determined by a priority chain depending on mode and flags.",
+          "priority": [
+            "1. Explicit format flag (0 or 2) always takes precedence.",
+            "2. For 'c' mode without format flag: check ctx['json.rendering.<id>'] and ctx['json.indent.<id>'].",
+            "3. For non-'c' modes without format flag: use DEFAULT_INDENT (2)."
+          ],
+          "ctx_keys": {
+            "json.rendering.<id>": {
+              "type": "str",
+              "values": ["compact"],
+              "meaning": "If set to 'compact', output JSON with no whitespace."
+            },
+            "json.indent.<id>": {
+              "type": "int",
+              "meaning": "Indentation level for pretty printing."
+            }
+          },
+          "default": "DEFAULT_INDENT = 2 (defined in json_io.py)"
+        },
+        "behavior": [
+          "Parse mode string into path_flag and optional format_flag.",
+          "Resolve path via get_path(id, path_flag).",
+          "Determine formatting via priority chain (format_flag > ctx keys > default).",
+          "Serialize data using json.dumps with determined formatting.",
+          "Ensure parent directories exist (path.parent.mkdir(parents=True, exist_ok=True)).",
+          "Write file with trailing newline (content + '\\n')."
+        ],
+        "errors": [
+          "ValueError if mode grammar invalid.",
+          "TypeError if data is not JSON-serializable.",
+          "KeyError if mode is 'c' and path.<id> is not declared.",
+          "OSError if filesystem write fails."
+        ],
+        "usage_examples": [
+          "write_json('state', data, 'p2')   # project-relative, indent=2",
+          "write_json('inventory', data, 'c0')  # configured path, compact",
+          "write_json('/tmp/out.json', data, 'f2')  # literal path, indent=2",
+          "write_json('logs/output.json', data, 'e0')  # execroot-relative, compact",
+          "write_json('inventory', data, 'c')  # configured path, formatting from ctx or default"
+        ],
+        "design_note": [
+          "Formatting shorthand is intentionally limited to {0,2}.",
+          "Additional formatting styles are explicitly out of scope for v0.",
+          "ctx keys are only honored for 'c' mode to keep behavior predictable for direct paths."
+        ]
+      },
+      "read_json": {
+        "signature": "read_json(id: str, mode: str = 'c') -> any",
+        "purpose": "Read and deserialize JSON from a filesystem path resolved via get_path().",
+        "description": [
+          "read_json resolves the path using get_path(id, path_flag).",
+          "Formatting flags are invalid for read_json and raise ValueError if present.",
+          "JSON parsing uses json.loads."
+        ],
+        "mode_flags": {
+          "grammar": "mode ::= {path_flag}",
+          "constraints": [
+            "Exactly one path flag must be present.",
+            "Formatting flags (0, 2) are invalid for read_json and raise ValueError."
+          ],
+          "path_flags_reference": "See write_json.mode_flags.path_flags"
+        },
+        "behavior": [
+          "Parse mode string and validate no format flags present.",
+          "Resolve path via get_path(id, path_flag).",
+          "Read UTF-8 text from file.",
+          "Deserialize using json.loads.",
+          "Return parsed object."
+        ],
+        "errors": [
+          "ValueError if mode contains format flags or is otherwise invalid.",
+          "KeyError if mode is 'c' and path.<id> is not declared.",
+          "FileNotFoundError if path does not exist.",
+          "json.JSONDecodeError if file contains invalid JSON."
+        ],
+        "usage_examples": [
+          "read_json('state', 'p')   # project-relative",
+          "read_json('inventory', 'c')  # configured path (default)",
+          "read_json('/tmp/out.json', 'f')  # literal filesystem path",
+          "read_json('data.json', 'e')  # execroot-relative"
+        ]
+      }
+    }
+  },
+  "constants": {
+    "DEFAULT_INDENT": {
+      "value": 2,
+      "location": "lionscliapp.json_io",
+      "purpose": "Default indentation level when no format flag is specified and ctx keys are not configured."
+    },
+    "FORMAT_FLAGS": {
+      "value": "frozenset('02')",
+      "location": "lionscliapp.json_io",
+      "purpose": "Valid format flags for write_json."
+    },
+    "PATH_MODES": {
+      "value": "frozenset('cpef')",
+      "location": "lionscliapp.paths",
+      "purpose": "Valid path resolution mode flags."
+    }
+  }
+}
