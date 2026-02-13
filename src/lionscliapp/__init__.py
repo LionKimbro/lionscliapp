@@ -21,6 +21,7 @@ from lionscliapp.ctx import ctx
 from lionscliapp.runtime_state import get_phase
 from lionscliapp.entrypoint import main, StartupError
 from lionscliapp.dispatch import DispatchError
+from lionscliapp.json_io import read_json, write_json
 from lionscliapp.declarations import (
     declare_app,
     describe_app,
