@@ -1,0 +1,824 @@
+# lionscliapp Reference Guide
+
+```python
+import lionscliapp as app
+```
+
+---
+
+## Introduction
+
+`lionscliapp` is a humane CLI application framework for Python 3.10+. Its central purpose is to remove the **argument-parsing tax** — the boilerplate cost of wiring up option parsers, configuration files, persistence logic, and type coercion — from every CLI tool you write.
+
+Instead, you declare what your tool is and what it can do. The framework handles the rest.
+
+### What It Provides
+
+- **Persistent per-project configuration.** Each project keeps a `config.json` in a hidden directory under the folder where the tool is run. Users can set values once; the tool remembers them.
+- **Configuration layering.** Values flow from declared defaults → persisted config → a transient options file → per-invocation CLI overrides. Later layers win. Your command sees the merged result.
+- **Namespace-based type coercion.** A key named `path.output` automatically becomes a `pathlib.Path`. A key named `json.indent.data` becomes an integer. You declare a string; you receive the right type.
+- **Built-in commands.** `set`, `get`, `keys`, and `help` are always available for free.
+- **A clean execution lifecycle.** Declarations happen first, then `app.main()` starts the machine. Commands run in the `running` phase, where mutation is forbidden.
+
+### Design Philosophy
+
+Several choices in this framework are deliberate and differ from common conventions:
+
+**Globals are good here.** CLI tools run once, in a single process, with a single context. Threading global state through every function is noise without benefit. `app.ctx` is global and honest about it.
+
+**JSON is the universal substrate.** All declared data must be JSON-serializable. Configuration is JSON. The framework is designed to be diffable, inspectable, loggable, and transmittable.
+
+**No classes.** The core architecture uses plain dictionaries and named functions. Data and behavior are kept separate. This is intentional, not an oversight.
+
+**Flags as semantic splitters.** Functions that do one thing in multiple ways take a short flag character rather than proliferating narrow variants. `mode="c"` means *configured*; `mode="p"` means *project-relative*.
+
+---
+
+## Getting Started
+
+### Installation
+
+```bash
+pip install -e .
+```
+
+Requires Python 3.10+.
+
+### A Complete Example
+
+Here is a small but complete tool called `filetool` that demonstrates the framework.
+
+```python
+# filetool.py
+import lionscliapp as app
+
+# --- Declarations ---
+
+app.declare_app("filetool", "1.0")
+app.describe_app("A tool for file operations")
+
+app.declare_projectdir(".filetool")
+
+app.declare_key("path.inbox",  "~/inbox")
+app.declare_key("path.output", "~/output")
+app.declare_key("json.indent.results", 2)
+
+app.describe_key("path.inbox",         "Where incoming files are read from")
+app.describe_key("path.output",        "Where output files are written")
+app.describe_key("json.indent.results","Indent level for results JSON")
+
+def cmd_process():
+    inbox  = app.ctx["path.inbox"]   # pathlib.Path
+    output = app.ctx["path.output"]  # pathlib.Path
+    indent = app.ctx["json.indent.results"]  # int
+
+    print(f"Reading from: {inbox}")
+    print(f"Writing to:   {output}")
+    print(f"JSON indent:  {indent}")
+    # ... do actual work ...
+
+def cmd_status():
+    print("All good.")
+
+app.declare_cmd("process", cmd_process)
+app.describe_cmd("process", "Process inbox files into output")
+
+app.declare_cmd("status", cmd_status)
+app.describe_cmd("status", "Check system status")
+
+# --- Entry point ---
+
+app.main()
+```
+
+**Running the tool:**
+
+```bash
+# Show help
+python filetool.py help
+
+# List all keys and their descriptions
+python filetool.py keys
+
+# Persist a config value
+python filetool.py set path.output ~/my-output
+
+# Inspect a key (shows default, stored value, and current value)
+python filetool.py get path.output
+
+# Run a command (uses persisted config)
+python filetool.py process
+
+# Override a value for this invocation only (not persisted)
+python filetool.py --path.inbox /tmp/test process
+
+# Load a batch of overrides from a file
+python filetool.py --options-file dev-overrides.json process
+```
+
+After `python filetool.py set path.output ~/my-output`, a file called `.filetool/config.json` is created in the current directory:
+
+```json
+{
+  "options": {
+    "path.output": "~/my-output"
+  }
+}
+```
+
+The next time the tool runs from that directory, it reads this file and `app.ctx["path.output"]` is already set to `Path("~/my-output").expanduser()`.
+
+---
+
+## Keys and Namespaces
+
+### What a Key Is
+
+Keys are dot-namespaced strings declared with `app.declare_key(key, default)`. They form the configuration vocabulary of your tool.
+
+```python
+app.declare_key("path.output",         "~/output")
+app.declare_key("json.indent.data",    2)
+app.declare_key("json.rendering.log",  "pretty")
+app.declare_key("retry.count",         3)
+```
+
+Keys are stored in `app.ctx` after the framework starts. Your commands read from `app.ctx`:
+
+```python
+def my_cmd():
+    v = app.ctx["retry.count"]  # 3 (or whatever is configured)
+```
+
+### Special Namespaces
+
+The framework inspects the first segment of each key and applies automatic type coercion before values reach `app.ctx`. No explicit type declarations are needed — the namespace carries the semantics.
+
+#### `path.*`
+
+Any key beginning with `path.` has its value coerced to a `pathlib.Path`.
+
+- `~` is expanded via `Path.expanduser()`.
+- Relative paths are resolved relative to the execution root (the directory where the tool was invoked).
+- Absolute paths are left as-is.
+
+```python
+app.declare_key("path.output", "~/output")
+
+# In your command:
+p = app.ctx["path.output"]  # pathlib.Path object, fully resolved
+p.mkdir(parents=True, exist_ok=True)
+```
+
+Because `path.*` keys become `Path` objects, they work directly with `get_path()`, `read_json()`, and `write_json()` (see below).
+
+#### `json.indent.*`
+
+Any key beginning with `json.indent.` is coerced to a non-negative integer.
+
+```python
+app.declare_key("json.indent.results", 2)
+
+# In your command:
+indent = app.ctx["json.indent.results"]  # int
+```
+
+When `write_json()` writes a file in configured mode (`"c"`), it looks for a corresponding `json.indent.<id>` key and uses it as the JSON indentation level.
+
+#### `json.rendering.*`
+
+Any key beginning with `json.rendering.` is validated as either `"pretty"` or `"compact"`.
+
+```python
+app.declare_key("json.rendering.output", "pretty")
+```
+
+When `write_json()` writes a file in configured mode, it also checks `json.rendering.<id>`. A value of `"compact"` produces minified JSON; `"pretty"` uses the indentation level from the corresponding `json.indent.*` key (defaulting to 2).
+
+#### Everything Else
+
+Keys not matching any special namespace are passed through without coercion. Whatever type the default or stored value has, that is what you get.
+
+```python
+app.declare_key("retry.count", 3)
+app.declare_key("dry.run",     False)
+app.declare_key("log.prefix",  "INFO")
+```
+
+### The ctx Dictionary
+
+`app.ctx` is a plain Python dictionary available during command execution. It is populated by `app.main()` just before dispatching to your command.
+
+```python
+def my_command():
+    print(app.ctx["path.output"])   # pathlib.Path
+    print(app.ctx["retry.count"])   # 3
+    print(app.ctx["dry.run"])       # False
+```
+
+Do not read `app.ctx` during the declaration phase (before `app.main()`). It is empty at that point.
+
+---
+
+## Configuration Layering
+
+Values in `app.ctx` are assembled from four layers. Later layers override earlier ones.
+
+| Layer | Source | Persists? |
+|-------|--------|-----------|
+| 1. Defaults | `declare_key(key, default)` | — |
+| 2. Config file | `.filetool/config.json` (written by `set`) | Yes |
+| 3. Options file | `--options-file path.json` | No |
+| 4. CLI overrides | `--key value` on command line | No |
+
+This means:
+- A value set with `mytool set path.output ~/out` survives across invocations.
+- A value passed as `mytool --path.output /tmp run` is used only for that run.
+- An options file is useful for scripted environments or per-environment config.
+
+### Config File Format
+
+The config file is written and read automatically. You can inspect it directly:
+
+```json
+{
+  "options": {
+    "path.output": "~/my-output",
+    "retry.count": 5
+  }
+}
+```
+
+### Options File Format
+
+An options file has the same structure as the config file:
+
+```json
+{
+  "options": {
+    "path.output": "/ci/build/output",
+    "json.indent.results": 0
+  }
+}
+```
+
+Load it with:
+
+```bash
+mytool --options-file ci-config.json process
+```
+
+Relative paths in `--options-file` are resolved against the execution root.
+
+---
+
+## Built-in Commands
+
+These four commands are always available. You do not declare them, and they cannot be overridden.
+
+### `set <key> <value>`
+
+Persist a configuration value to `config.json`. The value is stored as a string.
+
+```bash
+mytool set path.output ~/my-output
+mytool set json.indent.results 4
+```
+
+After `set`, the value is immediately reflected in `app.ctx` for the current invocation (though there is rarely a reason to run another command in the same invocation).
+
+### `get <key>`
+
+Show the current state of a key, broken down by layer.
+
+```bash
+mytool get path.output
+```
+
+Output shows the declared default, the stored config file value (if any), and the current resolved value.
+
+### `keys`
+
+List all declared configuration keys with their short descriptions.
+
+```bash
+mytool keys
+```
+
+### `help [command]`
+
+Show application help. Without an argument, lists all commands and options. With a command name, shows detailed help for that command.
+
+```bash
+mytool help
+mytool help process
+```
+
+---
+
+## CLI Global Options
+
+These options are parsed before the command and apply to any invocation.
+
+### `--<key> <value>`
+
+Override a configuration value for this invocation only (not persisted).
+
+```bash
+mytool --path.output /tmp/test process
+mytool --retry.count 1 process
+```
+
+Multiple overrides can be combined:
+
+```bash
+mytool --path.inbox /tmp/in --path.output /tmp/out process
+```
+
+### `--options-file <path>`
+
+Load a batch of configuration overrides from a JSON file. The file must contain an `"options"` object.
+
+```bash
+mytool --options-file dev.json process
+```
+
+### `--execroot <path>`
+
+Override the execution root directory. By default the execution root is the current working directory. This option is only accepted if the application declared `allow_execroot_override: true`.
+
+```bash
+mytool --execroot /other/project process
+```
+
+---
+
+## Path Resolution
+
+### `app.get_path(id, mode="c")`
+
+Resolve a path using one of four modes.
+
+| Mode | Meaning |
+|------|---------|
+| `"c"` | Configured: looks up `app.ctx["path.<id>"]` |
+| `"p"` | Project: resolves `<id>` relative to the project directory |
+| `"e"` | Execroot: resolves `<id>` relative to the execution root |
+| `"f"` | Filesystem: treats `<id>` as a literal path (absolute, or relative to cwd) |
+
+```python
+def my_cmd():
+    # Configured mode (default): reads ctx["path.output"]
+    p = app.get_path("output")
+
+    # Project mode: project_dir/results.json
+    p = app.get_path("results.json", "p")
+
+    # Execroot mode: execroot/data/input.json
+    p = app.get_path("data/input.json", "e")
+
+    # Filesystem mode: literal path
+    p = app.get_path("/absolute/path/to/file.json", "f")
+```
+
+All modes return an absolute `pathlib.Path`.
+
+---
+
+## JSON I/O
+
+These utilities integrate path resolution and format configuration so you do not have to manage them manually.
+
+### `app.read_json(id, mode="c")`
+
+Read and parse a JSON file. The `mode` is a path mode character (`c`, `p`, `e`, `f`).
+
+```python
+def my_cmd():
+    data = app.read_json("input")          # reads ctx["path.input"]
+    data = app.read_json("data.json", "p") # reads <project_dir>/data.json
+    data = app.read_json("results.json", "e") # reads <execroot>/results.json
+```
+
+Raises `FileNotFoundError` if the file does not exist. Raises `json.JSONDecodeError` if the file is not valid JSON.
+
+### `app.write_json(id, data, mode="c")`
+
+Write data to a JSON file. The `mode` string can contain a path flag and an optional format flag.
+
+**Path flags:** `c`, `p`, `e`, `f` (same as `get_path`).
+
+**Format flags:**
+
+| Flag | Meaning |
+|------|---------|
+| `"2"` | Pretty: indent with 2 spaces (default) |
+| `"0"` | Compact: no whitespace |
+
+```python
+def my_cmd():
+    results = {"count": 42, "items": [...]}
+
+    # Configured path, formatting read from ctx if declared
+    app.write_json("output", results)
+
+    # Configured path, force pretty format
+    app.write_json("output", results, "c2")
+
+    # Configured path, force compact (minified) format
+    app.write_json("output", results, "c0")
+
+    # Project-relative path, pretty format
+    app.write_json("cache.json", results, "p2")
+
+    # Literal path
+    app.write_json("/tmp/debug.json", results, "f")
+```
+
+**Format from ctx (configured mode only):** When using mode `"c"` without an explicit format flag, `write_json` checks `app.ctx` for:
+- `json.rendering.<id>` — `"pretty"` or `"compact"`
+- `json.indent.<id>` — indent level (integer)
+
+If those keys are declared and configured, the file is formatted accordingly. This lets users control output formatting via `set`.
+
+---
+
+## Lifecycle Phases
+
+The framework moves through three phases in order. Understanding them helps make sense of error messages.
+
+| Phase | When | What's allowed |
+|-------|------|----------------|
+| `"declaring"` | Before `app.main()` | All `declare_*`, `describe_*` calls |
+| `"running"` | Inside `app.main()`, command executing | Reading `app.ctx`; calling commands |
+| `"shutdown"` | After command finishes | Nothing |
+
+All declaration functions enforce the declaring phase. Calling `app.declare_key()` after `app.main()` raises a `RuntimeError`.
+
+```python
+phase = app.get_phase()  # "declaring", "running", or "shutdown"
+```
+
+---
+
+## Complete Function Reference
+
+### Declaration Functions
+
+All declaration functions must be called before `app.main()`.
+
+---
+
+#### `app.declare_app(name, version)`
+
+Set the application name and version string.
+
+```python
+app.declare_app("mytool", "1.0")
+```
+
+**Parameters:**
+- `name` — Application name (string)
+- `version` — Version string (string)
+
+---
+
+#### `app.describe_app(description, flags="")`
+
+Set a description for the application.
+
+```python
+app.describe_app("A tool that does useful things")
+app.describe_app("Extended details about what this tool does...", "l")
+```
+
+**Parameters:**
+- `description` — Description text (string)
+- `flags` — `""` or `"s"` sets the short description (default); `"l"` sets the long description
+
+---
+
+#### `app.declare_projectdir(name)`
+
+Set the name of the project directory where `config.json` is stored. This directory is created under the execution root when the tool first runs.
+
+```python
+app.declare_projectdir(".mytool")
+```
+
+**Parameters:**
+- `name` — Directory name (string, e.g. `".mytool"`)
+
+---
+
+#### `app.declare_cmd(name, fn)`
+
+Bind a command name to a Python callable.
+
+```python
+def do_work():
+    ...
+
+app.declare_cmd("work", do_work)
+```
+
+**Parameters:**
+- `name` — Command name (string)
+- `fn` — Callable with no arguments
+
+Built-in command names (`set`, `get`, `help`, `keys`) cannot be used as user command names.
+
+---
+
+#### `app.describe_cmd(name, description, flags="")`
+
+Set a description for a command.
+
+```python
+app.describe_cmd("work", "Run the main work process")
+app.describe_cmd("work", "Full description of what work does...", "l")
+```
+
+**Parameters:**
+- `name` — Command name (string)
+- `description` — Description text (string)
+- `flags` — `""` or `"s"` for short (default); `"l"` for long
+
+---
+
+#### `app.declare_key(key, default)`
+
+Declare a configuration key with its default value.
+
+```python
+app.declare_key("path.output", "~/output")
+app.declare_key("retry.count", 3)
+app.declare_key("dry.run",     False)
+```
+
+**Parameters:**
+- `key` — Key name (dot-namespaced string)
+- `default` — Default value; must be JSON-serializable
+
+The default is what `app.ctx[key]` returns if no other layer provides a value.
+
+---
+
+#### `app.describe_key(key, description, flags="")`
+
+Set a description for a configuration key.
+
+```python
+app.describe_key("path.output", "Where output files are written")
+app.describe_key("path.output", "Full details about the output path...", "l")
+```
+
+**Parameters:**
+- `key` — Key name (string)
+- `description` — Description text (string)
+- `flags` — `""` or `"s"` for short (default); `"l"` for long
+
+---
+
+#### `app.declare(spec)`
+
+Mass-declare by deep-merging a specification dictionary into the application model. Useful for loading declarations from an external JSON file or for grouping related declarations.
+
+```python
+app.declare({
+    "id": {
+        "name": "mytool",
+        "version": "1.0",
+        "short_desc": "A useful tool"
+    },
+    "names": {
+        "project_dir": ".mytool"
+    },
+    "options": {
+        "path.output": {"default": "~/output", "short": "Output path"},
+        "retry.count": {"default": 3}
+    },
+    "commands": {
+        "work": {"short": "Do the work"}
+    }
+})
+```
+
+**Parameters:**
+- `spec` — Dictionary following the application model structure
+
+**Merge semantics:** Dictionaries are merged recursively. Scalar values use last-value-wins. `declare()` does not bind command functions — use `declare_cmd()` for that.
+
+---
+
+### Entry Point
+
+#### `app.main()`
+
+Start the application. This is always the last call in your script.
+
+```python
+app.main()
+```
+
+The framework:
+1. Validates the application model
+2. Parses CLI arguments
+3. Resolves the execution root
+4. Creates the project directory if needed
+5. Loads `config.json`
+6. Loads the options file (if `--options-file` was given)
+7. Builds `app.ctx` by merging all layers and applying coercion
+8. Dispatches to the appropriate command
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | Command executed successfully |
+| `1` | Validation, configuration, or CLI parsing error |
+| `2` | Unknown command or unbound function |
+| `3` | Uncaught exception from the command |
+
+---
+
+### Runtime Context
+
+#### `app.ctx`
+
+A plain dictionary containing the merged, coerced configuration for the current invocation. Available during command execution.
+
+```python
+def my_cmd():
+    out    = app.ctx["path.output"]          # pathlib.Path
+    indent = app.ctx["json.indent.results"]  # int
+    count  = app.ctx["retry.count"]          # 3 (or configured value)
+```
+
+`app.ctx` is empty before `app.main()` runs. Do not read it at module level or during declarations.
+
+---
+
+### Path and JSON Utilities
+
+#### `app.get_path(id, mode="c")`
+
+Resolve a path. Returns an absolute `pathlib.Path`.
+
+```python
+p = app.get_path("output")              # ctx["path.output"] as Path
+p = app.get_path("cache.json", "p")    # <project_dir>/cache.json
+p = app.get_path("data/in.json", "e")  # <execroot>/data/in.json
+p = app.get_path("/abs/path.json", "f")# literal path
+```
+
+**Parameters:**
+- `id` — Key name (for `"c"`), filename or subpath (for `"p"`, `"e"`), or literal path (for `"f"`)
+- `mode` — One of `"c"` (configured), `"p"` (project), `"e"` (execroot), `"f"` (filesystem)
+
+---
+
+#### `app.read_json(id, mode="c")`
+
+Read and parse a JSON file. Returns the parsed Python value.
+
+```python
+data = app.read_json("input")           # reads ctx["path.input"] file
+data = app.read_json("state.json", "p") # reads <project_dir>/state.json
+```
+
+**Parameters:**
+- `id` — Path identifier (interpretation depends on mode)
+- `mode` — Path mode: `"c"`, `"p"`, `"e"`, or `"f"`
+
+Raises `FileNotFoundError` if the file does not exist.
+Raises `json.JSONDecodeError` if the file contains invalid JSON.
+
+---
+
+#### `app.write_json(id, data, mode="c")`
+
+Write Python data as JSON to a file. Creates parent directories if needed. Adds a trailing newline.
+
+```python
+app.write_json("output", results)          # configured path, ctx formatting
+app.write_json("output", results, "c2")   # configured path, pretty
+app.write_json("output", results, "c0")   # configured path, compact
+app.write_json("log.json", log, "p")      # <project_dir>/log.json
+app.write_json("/tmp/dbg.json", d, "f")   # literal path
+```
+
+**Parameters:**
+- `id` — Path identifier
+- `data` — JSON-serializable value to write
+- `mode` — Mode string: a path flag (`c`, `p`, `e`, `f`) optionally followed by a format flag (`2` for pretty, `0` for compact)
+
+In `"c"` mode without an explicit format flag, formatting is read from `app.ctx`:
+- `json.rendering.<id>` — `"pretty"` or `"compact"`
+- `json.indent.<id>` — indent level (integer)
+
+If those keys are not declared, the default is pretty with 2-space indent.
+
+---
+
+### Introspection
+
+#### `app.get_phase()`
+
+Return the current execution phase as a string.
+
+```python
+phase = app.get_phase()  # "declaring", "running", or "shutdown"
+```
+
+Useful in tests or for conditional logic that needs to know whether declarations are still possible.
+
+---
+
+### Testing and REPL Support
+
+#### `app.reset()`
+
+Reset all global framework state to the initial declaring-ready state. Intended for tests and interactive use.
+
+```python
+app.reset()
+```
+
+After `reset()`, all declarations are cleared and the phase returns to `"declaring"`. This allows multiple tests to run against fresh framework state in the same process.
+
+Example test pattern:
+
+```python
+import lionscliapp as app
+
+def setup_function():
+    app.reset()
+
+def test_my_command():
+    app.declare_app("test", "1.0")
+    app.declare_projectdir(".test")
+    app.declare_key("path.output", "/tmp/out")
+    app.declare_cmd("run", lambda: None)
+    # ... invoke and assert ...
+```
+
+---
+
+### Exceptions
+
+#### `app.StartupError`
+
+Raised by `app.main()` for errors that occur before dispatch: validation failures, missing declarations, bad CLI syntax, or config file problems.
+
+```python
+from lionscliapp import StartupError
+```
+
+Exit code: `1`.
+
+#### `app.DispatchError`
+
+Raised by `app.main()` when the command name is not recognized or a command function is not bound.
+
+```python
+from lionscliapp import DispatchError
+```
+
+Exit code: `2`.
+
+---
+
+## Application Flags
+
+Two optional flags can be set on the application model to change how the execution root is found.
+
+### `search_upwards_for_project_dir`
+
+When `True`, the framework walks up the directory tree from the current working directory looking for a parent that contains the project directory. This makes the tool usable from subdirectories of a project, similar to how `git` finds `.git`.
+
+Set via `declare()`:
+
+```python
+app.declare({
+    "flags": {
+        "search_upwards_for_project_dir": True
+    }
+})
+```
+
+Default: `False`.
+
+### `allow_execroot_override`
+
+When `True`, the `--execroot` CLI option is accepted. When `False` (the default), passing `--execroot` causes a startup error.
+
+```python
+app.declare({
+    "flags": {
+        "allow_execroot_override": True
+    }
+})
+```
+
+Default: `False`.
