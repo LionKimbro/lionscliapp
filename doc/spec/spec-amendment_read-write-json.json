@@ -99,18 +99,13 @@
           "description": "Formatting is determined by a priority chain depending on mode and flags.",
           "priority": [
             "1. Explicit format flag (0 or 2) always takes precedence.",
-            "2. For 'c' mode without format flag: check ctx['json.rendering.<id>'] and ctx['json.indent.<id>'].",
+            "2. For 'c' mode without format flag: check ctx['json.indent.<id>'] (0 means compact).",
             "3. For non-'c' modes without format flag: use DEFAULT_INDENT (2)."
           ],
           "ctx_keys": {
-            "json.rendering.<id>": {
-              "type": "str",
-              "values": ["compact"],
-              "meaning": "If set to 'compact', output JSON with no whitespace."
-            },
             "json.indent.<id>": {
               "type": "int",
-              "meaning": "Indentation level for pretty printing."
+              "meaning": "Indentation level. 0 means compact (no whitespace); positive values indent with that many spaces."
             }
           },
           "default": "DEFAULT_INDENT = 2 (defined in json_io.py)"

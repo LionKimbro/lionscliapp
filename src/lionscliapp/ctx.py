@@ -11,10 +11,9 @@ configuration at runtime. The ctx is built by:
 5. Coercing values by namespace policies
 
 Namespace coercion rules (from spec):
-    path.*           -> pathlib.Path (expanduser, relative resolved against execroot)
-    json.rendering.* -> validated enum ("pretty", "compact")
-    json.indent.*    -> int >= 0
-    (unknown)        -> identity (no coercion)
+    path.*        -> pathlib.Path (expanduser, relative resolved against execroot)
+    json.indent.* -> int >= 0; indent=0 means compact (no whitespace)
+    (unknown)     -> identity (no coercion)
 
 The ctx is constructed during main() after config loading, before command
 dispatch. Commands access it via app.ctx.
@@ -89,8 +88,6 @@ def _coerce_value(key, value):
 
     if namespace == "path":
         return _coerce_path(key, value)
-    elif namespace == "json.rendering":
-        return _coerce_json_rendering(key, value)
     elif namespace == "json.indent":
         return _coerce_json_indent(key, value)
     else:
@@ -111,8 +108,6 @@ def _get_namespace(key):
         The namespace prefix string.
     """
     # Check multi-level namespaces first
-    if key.startswith("json.rendering."):
-        return "json.rendering"
     if key.startswith("json.indent."):
         return "json.indent"
 
@@ -153,28 +148,6 @@ def _coerce_path(key, value):
         p = execroot.get_execroot() / p
 
     return p
-
-
-def _coerce_json_rendering(key, value):
-    """
-    Coerce and validate a json.rendering.* value.
-
-    Args:
-        key: The option key (for error messages)
-        value: The value to validate
-
-    Returns:
-        The validated string ("pretty" or "compact").
-
-    Raises:
-        ValueError: If value is not a valid rendering mode.
-    """
-    allowed = ("pretty", "compact")
-    if value not in allowed:
-        raise ValueError(
-            f"Option {key!r}: must be one of {allowed}, got {value!r}"
-        )
-    return value
 
 
 def _coerce_json_indent(key, value):

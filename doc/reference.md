@@ -195,19 +195,17 @@ p.mkdir(parents=True, exist_ok=True)
 
 This is the main reason to use the `path.` prefix. It also makes `path.*` keys work directly with `get_path()`, `read_json()`, and `write_json()` (see below).
 
-### `json.indent.*` and `json.rendering.*` — JSON Output Configuration
+### `json.indent.*` — JSON Output Configuration
 
-These two namespaces exist specifically to configure the behaviour of `write_json()`. They are not general-purpose coercion; they are wired into the JSON I/O system.
+This namespace exists specifically to configure the behaviour of `write_json()`. It is not general-purpose coercion; it is wired into the JSON I/O system.
 
-- `json.indent.<id>` — the indentation level (coerced to int) to use when writing the JSON file identified by `<id>`.
-- `json.rendering.<id>` — either `"pretty"` or `"compact"`, controlling whether the file is human-readable or minified.
+- `json.indent.<id>` — the indentation level (coerced to int) to use when writing the JSON file identified by `<id>`. A value of `0` means compact output with no whitespace.
 
 ```python
-app.declare_key("json.indent.results",    "2")
-app.declare_key("json.rendering.results", "pretty")
+app.declare_key("json.indent.results", 2)
 ```
 
-When `write_json("results", data)` is called in configured mode, it checks for these keys and formats the output accordingly. This lets users control formatting with `mytool set json.indent.results 4` without any extra code in your commands.
+When `write_json("results", data)` is called in configured mode, it checks this key and formats the output accordingly. This lets users control formatting with `mytool set json.indent.results 4` or `mytool set json.indent.results 0` (compact) without any extra code in your commands.
 
 See the [JSON I/O](#json-io) section for full details.
 
@@ -440,11 +438,7 @@ def my_cmd():
     app.write_json("/tmp/debug.json", results, "f")
 ```
 
-**Format from ctx (configured mode only):** When using mode `"c"` without an explicit format flag, `write_json` checks `app.ctx` for:
-- `json.rendering.<id>` — `"pretty"` or `"compact"`
-- `json.indent.<id>` — indent level (integer)
-
-If those keys are declared and configured, the file is formatted accordingly. This lets users control output formatting via `set`.
+**Format from ctx (configured mode only):** When using mode `"c"` without an explicit format flag, `write_json` checks `app.ctx` for `json.indent.<id>`. If declared, that integer is used as the indent level; `0` means compact (no whitespace). If not declared, the default is indent=2.
 
 ---
 
@@ -718,10 +712,9 @@ app.write_json("/tmp/dbg.json", d, "f")   # literal path
 - `mode` — Mode string: a path flag (`c`, `p`, `e`, `f`) optionally followed by a format flag (`2` for pretty, `0` for compact)
 
 In `"c"` mode without an explicit format flag, formatting is read from `app.ctx`:
-- `json.rendering.<id>` — `"pretty"` or `"compact"`
-- `json.indent.<id>` — indent level (integer)
+- `json.indent.<id>` — indent level (integer); `0` means compact (no whitespace)
 
-If those keys are not declared, the default is pretty with 2-space indent.
+If that key is not declared, the default is 2-space indent.
 
 ---
 

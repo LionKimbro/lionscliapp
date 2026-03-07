@@ -384,7 +384,7 @@ def test_write_json_flag_order_independent(tmp_path, monkeypatch):
 # =============================================================================
 
 def test_write_json_configured_uses_ctx_rendering(tmp_path, monkeypatch):
-    """'c' mode without format flag honors json.rendering.<id> from ctx."""
+    """'c' mode without format flag uses compact when json.indent.<id>=0."""
     monkeypatch.chdir(tmp_path)
 
     out_file = tmp_path / "output.json"
@@ -392,7 +392,7 @@ def test_write_json_configured_uses_ctx_rendering(tmp_path, monkeypatch):
     declarations.declare_app("myapp", "1.0")
     declarations.declare_projectdir(".myapp")
     declarations.declare_key("path.out", str(out_file))
-    declarations.declare_key("json.rendering.out", "compact")
+    declarations.declare_key("json.indent.out", 0)
 
     _simulate_startup(tmp_path)
 
@@ -430,7 +430,7 @@ def test_write_json_format_flag_overrides_ctx(tmp_path, monkeypatch):
     declarations.declare_app("myapp", "1.0")
     declarations.declare_projectdir(".myapp")
     declarations.declare_key("path.out", str(out_file))
-    declarations.declare_key("json.rendering.out", "compact")  # would be compact
+    declarations.declare_key("json.indent.out", 0)  # would be compact
 
     _simulate_startup(tmp_path)
 
@@ -447,7 +447,7 @@ def test_write_json_non_configured_ignores_ctx(tmp_path, monkeypatch):
     declarations.declare_app("myapp", "1.0")
     declarations.declare_projectdir(".myapp")
     # Declare ctx keys that would apply if using 'c' mode
-    declarations.declare_key("json.rendering.state", "compact")
+    declarations.declare_key("json.indent.state", 0)
 
     _simulate_startup(tmp_path)
 

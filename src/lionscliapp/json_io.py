@@ -11,8 +11,8 @@ Format flags (write_json only):
     0 - compact: No indentation
     2 - pretty: Indent with 2 spaces
 
-For 'c' mode without format flag, json.rendering.<id> and json.indent.<id>
-from ctx are honored if declared. Other modes default to indent=2.
+For 'c' mode without format flag, json.indent.<id> from ctx is honored if
+declared. indent=0 means compact (no whitespace). Other modes default to indent=2.
 
 Usage:
     import lionscliapp as app
@@ -177,22 +177,18 @@ def _get_configured_formatting(id: str) -> tuple:
     """
     Get formatting from ctx for configured mode.
 
-    Checks json.rendering.<id> and json.indent.<id>.
+    Checks json.indent.<id>. indent=0 means compact (no whitespace).
     Defaults to DEFAULT_INDENT if not configured.
 
     Returns:
         (indent, compact) tuple.
     """
-    rendering_key = f"json.rendering.{id}"
     indent_key = f"json.indent.{id}"
-
-    rendering = ctx.get(rendering_key)
     indent = ctx.get(indent_key)
 
-    if rendering == "compact":
-        return (None, True)
-
     if indent is not None:
+        if indent == 0:
+            return (None, True)
         return (indent, False)
 
     # Default

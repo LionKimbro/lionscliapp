@@ -11,8 +11,7 @@ A humane CLI application framework for Python.
 - **Configuration Layering** — Values merge from defaults → disk config → options file → CLI overrides
 - **Namespace-Based Type Coercion** — Automatic conversion based on key prefixes:
   - `path.*` → `pathlib.Path`
-  - `json.rendering.*` → enum (`"pretty"`, `"compact"`)
-  - `json.indent.*` → integer ≥ 0
+  - `json.indent.*` → integer ≥ 0 (0 means compact: no whitespace)
 - **Built-in Commands** — `set`, `get`, `keys`, and `help` provided out of the box
 - **Two-Phase CLI Parsing** — Framework options parsed separately from command arguments
 - **JSON as Universal Substrate** — All declarative data is JSON-serializable
@@ -100,7 +99,7 @@ src/lionscliapp/
 
 ## Status
 
-**Version:** 0.1.0 (v0 specification)
+**Version:** 0.1.2 (v0 specification)
 
 Core framework is complete with:
 - Full lifecycle management

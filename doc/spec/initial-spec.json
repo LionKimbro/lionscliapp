@@ -104,7 +104,7 @@
       "examples": [
         "path.scan",
         "path.output.inventory",
-        "json.rendering.inventory",
+        "json.indent.inventory",
         "json.indent.inventory"
       ],
       "rules": [
@@ -125,24 +125,15 @@
         "runtime_type": "pathlib.Path",
         "logical_json_form": "string path"
       },
-      "json.rendering": {
-        "applies_to": "option keys beginning with 'json.rendering.'",
-        "meaning": "Controls JSON serialization formatting.",
-        "allowed_values": [
-          "pretty",
-          "compact"
-        ],
-        "coercion": "validated string enum",
-        "runtime_type": "string"
-      },
       "json.indent": {
         "applies_to": "option keys beginning with 'json.indent.'",
-        "meaning": "Indentation level for pretty-printed JSON.",
+        "meaning": "Indentation level for JSON output. 0 means compact (no whitespace).",
         "validation": [
           "Must be integer >= 0"
         ],
         "coercion": "string or number -> int",
-        "runtime_type": "int"
+        "runtime_type": "int",
+        "compact_behavior": "When value is 0, JSON is written with no whitespace (separators=(\",\", \":\"))."
       }
     },
     "extension_policy": {
@@ -303,7 +294,6 @@
             "examples": [
               "path.scan",
               "path.output.inventory",
-              "json.rendering.inventory",
               "json.indent.inventory"
             ]
           }
@@ -396,8 +386,7 @@
       },
       "coercion_rules": {
         "path.*": "string -> pathlib.Path",
-        "json.rendering.*": "validated enum string",
-        "json.indent.*": "int >= 0",
+        "json.indent.*": "int >= 0; 0 means compact (separators=(\",\",\":\")), positive values indent with that many spaces",
         "future": "namespace-based coercion rules may be added"
       },
       "serialization_policy": "ctx must remain JSON-serializable in logical form, even if runtime types differ."
@@ -486,8 +475,8 @@
         "update app.ctx"
       ],
       "errors": [
-        "unknown option key → error",
-        "invalid value → error with explanation"
+        "unknown option key \u2192 error",
+        "invalid value \u2192 error with explanation"
       ],
       "persistence": "yes",
       "atomic_write_failure": {
@@ -715,7 +704,7 @@
               "meaning": "Uncaught exception during command execution."
             }
           },
-          "return_value": "main() returns the dispatched command’s return value, but process exit code reflects execution outcome."
+          "return_value": "main() returns the dispatched command\u2019s return value, but process exit code reflects execution outcome."
         }
       },
       "run": {
@@ -738,7 +727,7 @@
       },
       "write_json": {
         "signature": "write_json(fileid, data)",
-        "description": "writes the data to the JSON file, per the configured formatting options, defaulting to pretty w/ indent=2; note that fileid is a logical name for the jsonfile, the position of which is specified by path.<fileid> in the config"
+        "description": "writes the data to the JSON file, per the configured formatting options; for \"c\" mode, honors json.indent.<id> from ctx (0 = compact, else indents with that many spaces); defaults to indent=2; note that fileid is a logical name for the json file, the position of which is specified by path.<fileid> in the config"
       },
       "read_json": {
         "signature": "read_json(fileid)",

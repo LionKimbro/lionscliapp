@@ -193,8 +193,7 @@ Values in `ctx` are:
 | Namespace | Coercion |
 |-----------|----------|
 | `path.*` | `pathlib.Path` (expanduser, relative paths resolved against execroot) |
-| `json.rendering.*` | Validated enum: `"pretty"` or `"compact"` |
-| `json.indent.*` | Integer ≥ 0 |
+| `json.indent.*` | Integer >= 0; 0 means compact (no whitespace) |
 | (other) | No coercion (identity) |
 
 ---

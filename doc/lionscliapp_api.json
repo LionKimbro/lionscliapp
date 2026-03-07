@@ -1,9 +1,9 @@
 {
   "document": {
-    "document_id": "lionscliapp.api.v1",
+    "document-id": "lionscliapp.api.v1",
     "title": "Lion's CLI App (lionscliapp) API Documentation",
     "purpose": "document how to use Lion's CLI App",
-    "version": "0.1.0"
+    "version": "0.1.2"
   },
   "description": "A humane CLI application framework for Python",
   "import": "import lionscliapp as app",
@@ -222,17 +222,9 @@
         "notes": "expanduser applied, relative paths resolved against execroot"
       },
       {
-        "namespace": "json.rendering.*",
-        "coercion": "enum",
-        "allowed_values": [
-          "pretty",
-          "compact"
-        ]
-      },
-      {
         "namespace": "json.indent.*",
         "coercion": "int",
-        "constraints": ">= 0"
+        "constraints": ">= 0; value 0 means compact (no whitespace)"
       },
       {
         "namespace": "(other)",

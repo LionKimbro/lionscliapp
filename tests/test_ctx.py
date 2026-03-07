@@ -321,66 +321,6 @@ def test_coerce_path_deep_namespace(tmp_path):
 
 
 # =============================================================================
-# json.rendering namespace coercion tests
-# =============================================================================
-
-def test_coerce_json_rendering_pretty(tmp_path):
-    """json.rendering.* accepts 'pretty'."""
-    application["names"]["project_dir"] = ".myproject"
-    application["options"]["json.rendering.output"] = {"default": "pretty", "short": None, "long": None}
-
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        resolve_execroot()
-        load_config()
-        load_options_file()
-
-        build_ctx()
-
-        assert ctx["json.rendering.output"] == "pretty"
-    finally:
-        os.chdir(original_cwd)
-
-
-def test_coerce_json_rendering_compact(tmp_path):
-    """json.rendering.* accepts 'compact'."""
-    application["names"]["project_dir"] = ".myproject"
-    application["options"]["json.rendering.output"] = {"default": "compact", "short": None, "long": None}
-
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        resolve_execroot()
-        load_config()
-        load_options_file()
-
-        build_ctx()
-
-        assert ctx["json.rendering.output"] == "compact"
-    finally:
-        os.chdir(original_cwd)
-
-
-def test_coerce_json_rendering_invalid_raises(tmp_path):
-    """json.rendering.* raises ValueError for invalid values."""
-    application["names"]["project_dir"] = ".myproject"
-    application["options"]["json.rendering.output"] = {"default": "invalid", "short": None, "long": None}
-
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        resolve_execroot()
-        load_config()
-        load_options_file()
-
-        with pytest.raises(ValueError, match="must be one of"):
-            build_ctx()
-    finally:
-        os.chdir(original_cwd)
-
-
-# =============================================================================
 # json.indent namespace coercion tests
 # =============================================================================
 
