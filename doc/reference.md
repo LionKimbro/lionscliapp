@@ -6,6 +6,52 @@ import lionscliapp as app
 
 ---
 
+## Contents
+
+- [Introduction](#introduction)
+  - [What It Provides](#what-it-provides)
+  - [What It Doesn't Do](#what-it-doesnt-do)
+  - [Design Ethos](#design-ethos)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [A Complete Example](#a-complete-example)
+- [Keys and Namespaces](#keys-and-namespaces)
+  - [What a Key Is](#what-a-key-is)
+  - [Values Are Strings](#values-are-strings)
+  - [`path.*` — The Special Case](#path--the-special-case)
+  - [`json.indent.*` — JSON Output Configuration](#jsonindent--json-output-configuration)
+  - [The ctx Dictionary](#the-ctx-dictionary)
+- [Configuration Layering](#configuration-layering)
+  - [Config File Format](#config-file-format)
+  - [Options File Format](#options-file-format)
+- [Built-in Commands](#built-in-commands)
+  - [`set <key> <value>`](#set-key-value)
+  - [`get <key>`](#get-key)
+  - [`keys`](#keys)
+  - [`help [command]`](#help-command)
+- [CLI Global Options](#cli-global-options)
+  - [`--<key> <value>`](#--key-value)
+  - [`--options-file <path>`](#--options-file-path)
+  - [`--execroot <path>`](#--execroot-path)
+  - [`--project-dir <name>`](#--project-dir-name)
+- [Path Resolution](#path-resolution)
+- [JSON I/O](#json-io)
+- [Lifecycle Phases](#lifecycle-phases)
+- [Complete Function Reference](#complete-function-reference)
+  - [Declaration Functions](#declaration-functions)
+  - [Entry Point](#entry-point)
+  - [Runtime Context](#runtime-context)
+  - [Path and JSON Utilities](#path-and-json-utilities)
+  - [Introspection](#introspection)
+  - [Testing and REPL Support](#testing-and-repl-support)
+  - [Exceptions](#exceptions)
+- [Application Flags](#application-flags)
+  - [`search_upwards_for_project_dir`](#search_upwards_for_project_dir)
+  - [`allow_execroot_override`](#allow_execroot_override)
+  - [`allow_projectdir_override`](#allow_projectdir_override)
+
+---
+
 ## Introduction
 
 **lionscliapp** is a framework for building **small command-line tools that remember things**.
