@@ -1,20 +1,21 @@
 # lionscliapp
 
-A humane CLI application framework for Python.
+**A framework for building small command-line tools that remember things.**
 
-`lionscliapp` removes the argument-parsing tax from CLI tool development while providing persistent per-project configuration, typed option namespaces, and a clean execution model. It emphasizes inspectability, clarity, and long-lived tooling.
+`lionscliapp` is a humane CLI application framework for Python. It makes it easy to build stateful developer tools quickly — tools that have persistent configuration, multiple sub-commands, and native support for paths and JSON files, without any argument-parsing boilerplate.
 
-## Features
+## What It Provides
 
-- **Declarative Application Structure** — Declare commands, options, and descriptions through a simple API
-- **Persistent Per-Project Configuration** — Each project maintains a `.json` config file that survives across invocations
-- **Configuration Layering** — Values merge from defaults → disk config → options file → CLI overrides
-- **Namespace-Based Type Coercion** — Automatic conversion based on key prefixes:
-  - `path.*` → `pathlib.Path`
-  - `json.indent.*` → integer ≥ 0 (0 means compact: no whitespace)
-- **Built-in Commands** — `set`, `get`, `keys`, and `help` provided out of the box
-- **Two-Phase CLI Parsing** — Framework options parsed separately from command arguments
-- **JSON as Universal Substrate** — All declarative data is JSON-serializable
+- **Persistence** — Each project gets a hidden directory (e.g. `.mytool/`) with a `config.json`. Users set values once; the tool remembers them.
+- **Automatic CLI parsing** — Declare keys; the framework parses, persists, and merges values into `app.ctx`. No argparser to write.
+- **Multiple commands** — Bind as many sub-commands as you like, or declare a default handler for bare invocations.
+- **Paths are native** — Any key prefixed with `path.` becomes a `pathlib.Path`, expanded and resolved automatically.
+- **JSON is native** — `read_json()` and `write_json()` handle path resolution and formatting. Reading or writing a named JSON file is a one-liner.
+- **Built-in commands** — `set`, `get`, `keys`, and `help` are always available for free.
+
+## What It Doesn't Do
+
+`lionscliapp` is deliberately simple. Configuration values are strings (except `path.*` keys, which become `pathlib.Path`). There is no built-in type system for integers, booleans, or enums — coerce from `app.ctx` yourself if you need them. This is a trade-off in favour of a smaller mental model.
 
 ## Installation
 
@@ -29,87 +30,42 @@ pip install -e .
 ```python
 import lionscliapp as app
 
-# Declare app identity
 app.declare_app("mytool", "1.0")
 app.describe_app("A tool that does useful things")
 
-# Declare project directory for persistent config
 app.declare_projectdir(".mytool")
 
-# Declare configuration keys with defaults
-app.declare_key("path.output", "/tmp/output")
-app.declare_key("json.indent.data", 2)
+app.declare_key("path.output", "~/output")
+app.declare_key("path.input",  "~/input")
 
-# Define and bind commands
-def run_command():
-    output_path = app.ctx["path.output"]  # Already a pathlib.Path
-    print(f"Output will go to: {output_path}")
+def cmd_run():
+    output = app.ctx["path.output"]  # pathlib.Path, fully resolved
+    print(f"Output will go to: {output}")
 
-app.declare_cmd("run", run_command)
+app.declare_cmd("run", cmd_run)
 app.describe_cmd("run", "Run the main process")
 
-# Start the application
 app.main()
 ```
 
-## CLI Usage
-
 ```bash
-# Show help
+mytool run                          # uses defaults
+mytool set path.output ~/my-output  # persist a value
+mytool --path.output /tmp run       # override for this invocation only
 mytool help
-
-# Run a user-defined command
-mytool run
-
-# List all configuration keys
 mytool keys
-
-# Set a persistent config value
-mytool set path.output /new/path
-
-# Get a config value
-mytool get path.output
-
-# Override options via CLI (transient)
-mytool --path.output /tmp run
-
-# Load overrides from a JSON file
-mytool --options-file overrides.json run
-
-# Override execution root
-mytool --execroot /other/project run
-```
-
-## Project Structure
-
-```
-src/lionscliapp/
-├── __init__.py        # Public API exports
-├── application.py     # Application data model
-├── declarations.py    # Declaration API (declare_app, declare_cmd, etc.)
-├── entrypoint.py      # Main entry point and lifecycle
-├── dispatch.py        # Command dispatch
-├── builtins.py        # Built-in commands (set, get, keys, help)
-├── ctx.py             # Runtime context construction
-├── cli_parsing.py     # Two-phase CLI parsing
-├── config_io.py       # Config file I/O
-├── execroot.py        # Execution root resolution
-└── ...
 ```
 
 ## Status
 
 **Version:** 0.1.2 (v0 specification)
 
-Core framework is complete with:
-- Full lifecycle management
-- Command dispatch with exit codes
-- Built-in commands
-- Configuration layering and persistence
-- Type coercion
-
-Future plans include programmatic invocation (`app.run()`) (maybe), interactive config editing (likely), and extensible namespace registration.
+Core framework is complete: lifecycle management, command dispatch, built-in commands, configuration layering and persistence, path coercion, JSON I/O utilities.
 
 ## License
 
 See LICENSE file for details.
+
+---
+
+📖 **[Full Reference Guide](doc/reference.md)**
