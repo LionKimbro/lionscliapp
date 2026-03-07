@@ -31,6 +31,7 @@ from lionscliapp.declarations import (
     describe_cmd,
     declare_key,
     describe_key,
+    set_flag,
     declare,
 )
 

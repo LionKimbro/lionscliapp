@@ -148,6 +148,26 @@ def describe_key(key, description, flags=""):
         application["options"][key]["short"] = description
 
 
+def set_flag(flag_name, value):
+    """
+    Set a flag in the application flags dict.
+
+    Flags control framework behaviour (e.g. allow_projectdir_override).
+    All flag values must be booleans.
+
+    Args:
+        flag_name: Flag name string (e.g. "allow_projectdir_override")
+        value: Boolean value to assign
+    """
+    require_declaring_phase()
+    if not isinstance(value, bool):
+        raise ValueError(
+            f"set_flag: value for '{flag_name}' must be a bool, "
+            f"got {type(value).__name__!r}"
+        )
+    application["flags"][flag_name] = value
+
+
 def declare(spec):
     """
     Perform a mass declaration by deep-merging spec into the application.
