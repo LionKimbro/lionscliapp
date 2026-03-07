@@ -8,25 +8,44 @@ import lionscliapp as app
 
 ## Introduction
 
-`lionscliapp` is a humane CLI application framework for Python 3.10+. Its central purpose is to remove the **argument-parsing tax** — the boilerplate cost of wiring up option parsers, configuration files, persistence logic, and type coercion — from every CLI tool you write.
+**lionscliapp** is a framework for building **small command-line tools that remember things**.
 
-Instead, you declare what your tool is and what it can do. The framework handles the rest.
+It is a humane CLI application framework for Python designed to make it easy to build **stateful developer tools** quickly.
+
+Many useful command-line tools need memory — configuration, stored data, and project awareness. `lionscliapp` provides this infrastructure automatically so that developers can focus on writing command behavior instead of repeatedly implementing boilerplate.
+
 
 ### What It Provides
 
-- **Persistent per-project configuration.** Each project keeps a `config.json` in a hidden directory under the folder where the tool is run. Users can set values once; the tool remembers them.
-- **Configuration layering.** Values flow from declared defaults → persisted config → a transient options file → per-invocation CLI overrides. Later layers win. Your command sees the merged result.
-- **Namespace-based type coercion.** A key named `path.output` automatically becomes a `pathlib.Path`. A key named `json.indent.data` becomes an integer. You declare a string; you receive the right type.
-- **Built-in commands.** `set`, `get`, `keys`, and `help` are always available for free.
-- **A clean execution lifecycle.** Declarations happen first, then `app.main()` starts the machine. Commands run in the `running` phase, where mutation is forbidden.
+**Persistence.** When the tool runs from a directory, it creates a hidden project folder there (e.g. `.mytool/`) and keeps a `config.json` inside it. Users can set values once with `mytool set key value`; those values survive across invocations. The project folder can also hold other files your tool needs.
 
-### Design Philosophy
+**Automatic CLI parsing.** You do not write an argument parser. You declare keys, and the framework handles parsing, persisting, and merging values. Options appear in `app.ctx` — a plain global dictionary — ready to use. You do not pass configuration around through function arguments.
 
-Several choices in this framework are deliberate and differ from common conventions:
+**Multiple commands.** You can bind as many sub-commands as you like with `declare_cmd`. You can also declare a default (no-command) handler so the tool does something sensible when invoked without a sub-command.
+
+**Paths are native.** CLI tools work with files constantly. Any key prefixed with `path.` is automatically converted to a `pathlib.Path` — expanded, resolved, ready to use. You also get `read_json()` and `write_json()` that take path names directly, so reading or writing a JSON file is a one-liner.
+
+**JSON is native.** The framework is built on the idea that JSON files are a good communication format between programs — readable, diffable, inspectable. Reading a named JSON input and writing a named JSON output requires no `import json`, no open/close, no path construction. Just `app.read_json("input")` and `app.write_json("output", data)`.
+
+**Built-in commands.** `set`, `get`, `keys`, and `help` are always available without any work on your part.
+
+### What It Doesn't Do
+
+`lionscliapp` is deliberately simple. With the exception of `path.*` keys, and a couple special purpose keys, **all configuration values are treated as strings**. There is no built-in system for declaring integer options, boolean flags, enums, or validated choices. If you need those, you coerce from `app.ctx` yourself:
+
+```python
+def my_cmd():
+    count = int(app.ctx["retry.count"])
+    verbose = app.ctx["verbose"].lower() == "true"
+```
+
+This is a deliberate trade-off: a simpler mental model in exchange for less automatic type handling.
+
+### Design Ethos
 
 **Globals are good here.** CLI tools run once, in a single process, with a single context. Threading global state through every function is noise without benefit. `app.ctx` is global and honest about it.
 
-**JSON is the universal substrate.** All declared data must be JSON-serializable. Configuration is JSON. The framework is designed to be diffable, inspectable, loggable, and transmittable.
+**JSON is the universal substrate.** All declared data must be JSON-serializable. Configuration is JSON.
 
 **No classes.** The core architecture uses plain dictionaries and named functions. Data and behavior are kept separate. This is intentional, not an oversight.
 
@@ -61,7 +80,7 @@ app.declare_projectdir(".filetool")
 
 app.declare_key("path.inbox",  "~/inbox")
 app.declare_key("path.output", "~/output")
-app.declare_key("json.indent.results", 2)
+app.declare_key("json.indent.results", "2")
 
 app.describe_key("path.inbox",         "Where incoming files are read from")
 app.describe_key("path.output",        "Where output files are written")
@@ -70,11 +89,9 @@ app.describe_key("json.indent.results","Indent level for results JSON")
 def cmd_process():
     inbox  = app.ctx["path.inbox"]   # pathlib.Path
     output = app.ctx["path.output"]  # pathlib.Path
-    indent = app.ctx["json.indent.results"]  # int
 
     print(f"Reading from: {inbox}")
     print(f"Writing to:   {output}")
-    print(f"JSON indent:  {indent}")
     # ... do actual work ...
 
 def cmd_status():
@@ -134,86 +151,74 @@ The next time the tool runs from that directory, it reads this file and `app.ctx
 
 ### What a Key Is
 
-Keys are dot-namespaced strings declared with `app.declare_key(key, default)`. They form the configuration vocabulary of your tool.
+Keys are dot-namespaced strings declared with `app.declare_key(key, default)`. They form the configuration vocabulary of your tool. When the framework starts, all key values — merged from their various sources — are placed in `app.ctx`, the global configuration dictionary.
 
 ```python
-app.declare_key("path.output",         "~/output")
-app.declare_key("json.indent.data",    2)
-app.declare_key("json.rendering.log",  "pretty")
-app.declare_key("retry.count",         3)
+app.declare_key("path.output", "~/output")
+app.declare_key("path.input",  "~/input")
+app.declare_key("log.prefix",  "INFO")
 ```
 
-Keys are stored in `app.ctx` after the framework starts. Your commands read from `app.ctx`:
+### Values Are Strings
+
+When a user sets a value from the command line (`--key value` or `mytool set key value`), it arrives as a plain string. The framework does not try to infer types. This means that if you declare:
+
+```python
+app.declare_key("retry.count", "3")
+```
+
+and the user runs `mytool set retry.count 5`, `app.ctx["retry.count"]` will be the string `"5"`. If you need an integer, coerce it yourself:
 
 ```python
 def my_cmd():
-    v = app.ctx["retry.count"]  # 3 (or whatever is configured)
+    count = int(app.ctx["retry.count"])
 ```
 
-### Special Namespaces
+Use string defaults for keys that users will configure. This keeps the contract clear.
 
-The framework inspects the first segment of each key and applies automatic type coercion before values reach `app.ctx`. No explicit type declarations are needed — the namespace carries the semantics.
+### `path.*` — The Special Case
 
-#### `path.*`
-
-Any key beginning with `path.` has its value coerced to a `pathlib.Path`.
+Any key prefixed with `path.` is treated differently: its value is converted to a `pathlib.Path` before it reaches `app.ctx`.
 
 - `~` is expanded via `Path.expanduser()`.
-- Relative paths are resolved relative to the execution root (the directory where the tool was invoked).
+- Relative paths are resolved against the execution root (the directory the tool was run from).
 - Absolute paths are left as-is.
 
 ```python
 app.declare_key("path.output", "~/output")
+app.declare_key("path.input",  "~/input")
 
 # In your command:
-p = app.ctx["path.output"]  # pathlib.Path object, fully resolved
+p = app.ctx["path.output"]  # pathlib.Path, fully resolved
 p.mkdir(parents=True, exist_ok=True)
 ```
 
-Because `path.*` keys become `Path` objects, they work directly with `get_path()`, `read_json()`, and `write_json()` (see below).
+This is the main reason to use the `path.` prefix. It also makes `path.*` keys work directly with `get_path()`, `read_json()`, and `write_json()` (see below).
 
-#### `json.indent.*`
+### `json.indent.*` and `json.rendering.*` — JSON Output Configuration
 
-Any key beginning with `json.indent.` is coerced to a non-negative integer.
+These two namespaces exist specifically to configure the behaviour of `write_json()`. They are not general-purpose coercion; they are wired into the JSON I/O system.
 
-```python
-app.declare_key("json.indent.results", 2)
-
-# In your command:
-indent = app.ctx["json.indent.results"]  # int
-```
-
-When `write_json()` writes a file in configured mode (`"c"`), it looks for a corresponding `json.indent.<id>` key and uses it as the JSON indentation level.
-
-#### `json.rendering.*`
-
-Any key beginning with `json.rendering.` is validated as either `"pretty"` or `"compact"`.
+- `json.indent.<id>` — the indentation level (coerced to int) to use when writing the JSON file identified by `<id>`.
+- `json.rendering.<id>` — either `"pretty"` or `"compact"`, controlling whether the file is human-readable or minified.
 
 ```python
-app.declare_key("json.rendering.output", "pretty")
+app.declare_key("json.indent.results",    "2")
+app.declare_key("json.rendering.results", "pretty")
 ```
 
-When `write_json()` writes a file in configured mode, it also checks `json.rendering.<id>`. A value of `"compact"` produces minified JSON; `"pretty"` uses the indentation level from the corresponding `json.indent.*` key (defaulting to 2).
+When `write_json("results", data)` is called in configured mode, it checks for these keys and formats the output accordingly. This lets users control formatting with `mytool set json.indent.results 4` without any extra code in your commands.
 
-#### Everything Else
-
-Keys not matching any special namespace are passed through without coercion. Whatever type the default or stored value has, that is what you get.
-
-```python
-app.declare_key("retry.count", 3)
-app.declare_key("dry.run",     False)
-app.declare_key("log.prefix",  "INFO")
-```
+See the [JSON I/O](#json-io) section for full details.
 
 ### The ctx Dictionary
 
-`app.ctx` is a plain Python dictionary available during command execution. It is populated by `app.main()` just before dispatching to your command.
+`app.ctx` is a plain Python dictionary populated by `app.main()` just before dispatching to your command.
 
 ```python
 def my_command():
-    print(app.ctx["path.output"])   # pathlib.Path
-    print(app.ctx["retry.count"])   # 3
-    print(app.ctx["dry.run"])       # False
+    print(app.ctx["path.output"])  # pathlib.Path
+    print(app.ctx["log.prefix"])   # "INFO" (string)
 ```
 
 Do not read `app.ctx` during the declaration phase (before `app.main()`). It is empty at that point.
@@ -244,7 +249,7 @@ The config file is written and read automatically. You can inspect it directly:
 {
   "options": {
     "path.output": "~/my-output",
-    "retry.count": 5
+    "log.prefix": "DEBUG"
   }
 }
 ```
@@ -552,15 +557,15 @@ Declare a configuration key with its default value.
 
 ```python
 app.declare_key("path.output", "~/output")
-app.declare_key("retry.count", 3)
-app.declare_key("dry.run",     False)
+app.declare_key("path.input",  "~/input")
+app.declare_key("log.prefix",  "INFO")
 ```
 
 **Parameters:**
 - `key` — Key name (dot-namespaced string)
 - `default` — Default value; must be JSON-serializable
 
-The default is what `app.ctx[key]` returns if no other layer provides a value.
+The default is what `app.ctx[key]` returns if no other layer provides a value. For keys that users will set from the CLI or via the `set` command, use string defaults — values from those sources always arrive as strings. See [Keys and Namespaces](#keys-and-namespaces) for details.
 
 ---
 
@@ -628,7 +633,7 @@ The framework:
 4. Creates the project directory if needed
 5. Loads `config.json`
 6. Loads the options file (if `--options-file` was given)
-7. Builds `app.ctx` by merging all layers and applying coercion
+7. Builds `app.ctx` by merging all layers (coercing `path.*` keys to `pathlib.Path`)
 8. Dispatches to the appropriate command
 
 **Exit codes:**
@@ -651,8 +656,7 @@ A plain dictionary containing the merged, coerced configuration for the current 
 ```python
 def my_cmd():
     out    = app.ctx["path.output"]          # pathlib.Path
-    indent = app.ctx["json.indent.results"]  # int
-    count  = app.ctx["retry.count"]          # 3 (or configured value)
+    prefix = app.ctx["log.prefix"]           # "INFO" (string)
 ```
 
 `app.ctx` is empty before `app.main()` runs. Do not read it at module level or during declarations.
