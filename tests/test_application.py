@@ -268,7 +268,7 @@ def test_reset_application_clears_previous_state():
         "flags": {
             "search_upwards_for_project_dir": False,
             "allow_execroot_override": True,
-            "allow_projectdir_override": False
+            "allow_projectdir_override": True
         },
         "options": {},
         "commands": {}

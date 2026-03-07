@@ -842,7 +842,7 @@ Default: `True`.
 When `True`, the `--project-dir` CLI option is accepted, allowing callers to override the project directory name for a single invocation. The value must be a plain directory name with no path separators. When `False`, passing `--project-dir` causes a startup error.
 
 ```python
-app.set_flag("allow_projectdir_override", True)
+app.set_flag("allow_projectdir_override", False)
 ```
 
-Default: `False`.
+Default: `True`.
