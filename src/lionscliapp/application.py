@@ -59,7 +59,8 @@ def reset_application():
         },
         "flags": {
             "search_upwards_for_project_dir": False,
-            "allow_execroot_override": True
+            "allow_execroot_override": True,
+            "allow_projectdir_override": False
         },
         "options": {},
         "commands": {}

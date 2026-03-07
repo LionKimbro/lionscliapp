@@ -26,6 +26,7 @@ from lionscliapp import application as appmodel
 from lionscliapp import runtime_state
 from lionscliapp import resolve_execroot
 from lionscliapp import cli_parsing
+from lionscliapp import cli_state
 from lionscliapp import config_io
 from lionscliapp import override_inputs
 from lionscliapp.ctx import build_ctx
@@ -99,6 +100,10 @@ def _startup():
         cli_parsing.ingest_argv(sys.argv[1:])
         cli_parsing.interpret_arguments()
 
+        # Apply --project-dir override if provided (before execroot resolution
+        # so that upward search uses the overridden name)
+        _apply_project_dir_override_if_requested()
+
         # Transition to running
         runtime_state.transition_to_running()
 
@@ -119,3 +124,34 @@ def _startup():
 
     except (ValueError, RuntimeError, OSError) as e:
         raise StartupError(str(e)) from e
+
+
+def _apply_project_dir_override_if_requested():
+    """
+    Apply --project-dir override to application["names"]["project_dir"] in place.
+
+    Called after argv is parsed, before execroot resolution, so that the
+    upward search (search_upwards_for_project_dir) uses the overridden name.
+
+    Raises:
+        ValueError: If override is not allowed, empty, or contains path separators.
+    """
+    override = cli_state.g["project_dir_override"]
+    if override is None:
+        return
+
+    if not appmodel.application["flags"]["allow_projectdir_override"]:
+        raise ValueError(
+            "--project-dir override provided but allow_projectdir_override is false"
+        )
+
+    if not override:
+        raise ValueError("--project-dir: value must not be empty")
+
+    if "/" in override or "\\" in override:
+        raise ValueError(
+            f"--project-dir: value must be a directory name, not a path "
+            f"(no slashes allowed): {override!r}"
+        )
+
+    appmodel.application["names"]["project_dir"] = override

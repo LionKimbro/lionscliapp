@@ -21,14 +21,15 @@ override_inputs.cli_overrides by cli_parsing.
 
 g = {
     # Set by ingest_argv
-    "options_file": None,         # None | str (path)
-    "execroot_override": None,    # None | str (path)
+    "options_file": None,           # None | str (path)
+    "execroot_override": None,      # None | str (path)
+    "project_dir_override": None,   # None | str (name, no path separators)
 
     # Set by interpret_arguments
-    "command": None,              # None | str
-    "key": None,                  # None | str (for set/get commands)
-    "value": None,                # None | str (for set command)
-    "command_help": None,         # None | str (for help command)
+    "command": None,                # None | str
+    "key": None,                    # None | str (for set/get commands)
+    "value": None,                  # None | str (for set command)
+    "command_help": None,           # None | str (for help command)
 }
 
 positional_args = []
@@ -43,6 +44,7 @@ def reset_cli_state():
     """
     g["options_file"] = None
     g["execroot_override"] = None
+    g["project_dir_override"] = None
     g["command"] = None
     g["key"] = None
     g["value"] = None

@@ -74,6 +74,8 @@ def _handle_option(argv: list[str], i: int) -> int:
         cli_state.g["execroot_override"] = value
     elif key == "options-file":
         cli_state.g["options_file"] = value
+    elif key == "project-dir":
+        cli_state.g["project_dir_override"] = value
     else:
         override_inputs.cli_overrides[key] = value
 
