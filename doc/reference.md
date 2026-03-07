@@ -348,10 +348,20 @@ mytool --options-file dev.json process
 
 ### `--execroot <path>`
 
-Override the execution root directory. By default the execution root is the current working directory. This option is only accepted if the application declared `allow_execroot_override: true`.
+Override the execution root directory. By default the execution root is the current working directory. This option is only accepted if the application set `allow_execroot_override` to `True`.
 
 ```bash
 mytool --execroot /other/project process
+```
+
+### `--project-dir <name>`
+
+Override the project directory name for this invocation. This is a directory **name** only (no slashes), not a full path. The overridden name is used when searching upward for the project directory, and the project directory is still located under the execution root.
+
+This option is only accepted if the application set `allow_projectdir_override` to `True`.
+
+```bash
+mytool --project-dir .mytool-staging process
 ```
 
 ---
@@ -448,7 +458,7 @@ The framework moves through three phases in order. Understanding them helps make
 
 | Phase | When | What's allowed |
 |-------|------|----------------|
-| `"declaring"` | Before `app.main()` | All `declare_*`, `describe_*` calls |
+| `"declaring"` | Before `app.main()` | All `declare_*`, `describe_*`, `set_flag()` calls |
 | `"running"` | Inside `app.main()`, command executing | Reading `app.ctx`; calling commands |
 | `"shutdown"` | After command finishes | Nothing |
 
@@ -576,6 +586,23 @@ app.describe_key("path.output", "Full details about the output path...", "l")
 - `key` — Key name (string)
 - `description` — Description text (string)
 - `flags` — `""` or `"s"` for short (default); `"l"` for long
+
+---
+
+#### `app.set_flag(flag_name, value)`
+
+Set an application flag. Flags control framework behaviour such as whether certain CLI overrides are accepted.
+
+```python
+app.set_flag("allow_projectdir_override", True)
+app.set_flag("search_upwards_for_project_dir", True)
+```
+
+**Parameters:**
+- `flag_name` — Flag name string (e.g. `"allow_projectdir_override"`)
+- `value` — Boolean value to assign
+
+Raises `ValueError` if `value` is not a `bool`. See [Application Flags](#application-flags) for the available flags and their meanings.
 
 ---
 
@@ -788,34 +815,34 @@ Exit code: `2`.
 
 ## Application Flags
 
-Two optional flags can be set on the application model to change how the execution root is found.
+Flags control optional framework behaviours. Set them with `app.set_flag()` during the declaring phase.
 
 ### `search_upwards_for_project_dir`
 
 When `True`, the framework walks up the directory tree from the current working directory looking for a parent that contains the project directory. This makes the tool usable from subdirectories of a project, similar to how `git` finds `.git`.
 
-Set via `declare()`:
-
 ```python
-app.declare({
-    "flags": {
-        "search_upwards_for_project_dir": True
-    }
-})
+app.set_flag("search_upwards_for_project_dir", True)
 ```
 
 Default: `False`.
 
 ### `allow_execroot_override`
 
-When `True`, the `--execroot` CLI option is accepted. When `False` (the default), passing `--execroot` causes a startup error.
+When `True`, the `--execroot` CLI option is accepted. When `False`, passing `--execroot` causes a startup error.
 
 ```python
-app.declare({
-    "flags": {
-        "allow_execroot_override": True
-    }
-})
+app.set_flag("allow_execroot_override", False)
+```
+
+Default: `True`.
+
+### `allow_projectdir_override`
+
+When `True`, the `--project-dir` CLI option is accepted, allowing callers to override the project directory name for a single invocation. The value must be a plain directory name with no path separators. When `False`, passing `--project-dir` causes a startup error.
+
+```python
+app.set_flag("allow_projectdir_override", True)
 ```
 
 Default: `False`.
