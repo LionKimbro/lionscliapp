@@ -1,0 +1,427 @@
+{
+  "document": {
+    "document-id": "lionscliapp.reference.v1",
+    "title": "lionscliapp Reference Guide",
+    "purpose": "Complete reference for the lionscliapp framework, intended for LLM consumption.",
+    "version": "0.1.2",
+    "import": "import lionscliapp as app"
+  },
+  "what_it_provides": [
+    "Persistence: creates a hidden project folder (e.g. .mytool/) with config.json; values set with 'mytool set key value' survive across invocations.",
+    "Automatic CLI parsing: declare keys, framework handles parsing/persisting/merging; values appear in app.ctx (a plain global dict) ready to use.",
+    "Multiple commands: bind sub-commands with declare_cmd; declare a default (no-command) handler for bare invocation.",
+    "Paths are native: any key prefixed with 'path.' is automatically converted to a pathlib.Path (expanded, resolved). read_json/write_json take path names directly.",
+    "JSON is native: read_json('input') and write_json('output', data) require no import json, no open/close, no path construction.",
+    "Built-in commands: set, get, keys, and help are always available without any work."
+  ],
+  "what_it_does_not_do": [
+    "No automatic type coercion for general keys (except path.* and json.indent.*). All other values are strings.",
+    "No built-in integer flags, boolean flags, enums, or validated choices. Coerce from app.ctx yourself.",
+    "No concurrency abstractions. Single-process, single-lifecycle by design."
+  ],
+  "design_principles": {
+    "globals": "app.ctx is global and honest about it. CLI tools run once, single process, single context.",
+    "json_substrate": "All declared data must be JSON-serializable. Configuration is JSON.",
+    "no_classes": "Core architecture uses plain dicts and named functions. Data and behavior kept separate.",
+    "flags_as_splitters": "Functions that do one thing in multiple ways take a short flag character. mode='c' means configured; mode='p' means project-relative."
+  },
+  "keys_and_namespaces": {
+    "overview": "Keys are dot-namespaced strings declared with app.declare_key(key, default). All values land in app.ctx after merging.",
+    "values_are_strings": "Values from CLI or 'set' command arrive as plain strings. Coerce yourself if needed: int(app.ctx['retry.count']).",
+    "namespaces": {
+      "path.*": {
+        "meaning": "Value is converted to pathlib.Path before reaching app.ctx.",
+        "coercion": [
+          "~ expanded via Path.expanduser()",
+          "Relative paths resolved against execution root",
+          "Absolute paths left as-is"
+        ],
+        "example_declaration": "app.declare_key('path.output', '~/output')",
+        "example_usage": "p = app.ctx['path.output']  # pathlib.Path, fully resolved"
+      },
+      "json.indent.*": {
+        "meaning": "Indentation level (coerced to int) for write_json output. 0 means compact (no whitespace).",
+        "coercion": "string or number -> int >= 0",
+        "wired_into": "write_json() in configured mode checks ctx['json.indent.<id>'] where <id> matches the write_json id argument.",
+        "example_declaration": "app.declare_key('json.indent.results', 2)",
+        "user_control": "mytool set json.indent.results 0  (compact) | mytool set json.indent.results 4  (4-space indent)"
+      },
+      "other": "All other namespace prefixes: no coercion, identity passthrough. Values remain as-is."
+    }
+  },
+  "configuration_layering": {
+    "order": [
+      {
+        "layer": 1,
+        "source": "Declared defaults (declare_key default argument)",
+        "persists": false
+      },
+      {
+        "layer": 2,
+        "source": "Config file (<project_dir>/config.json, written by 'set' command)",
+        "persists": true
+      },
+      {
+        "layer": 3,
+        "source": "Options file (--options-file path.json)",
+        "persists": false
+      },
+      {
+        "layer": 4,
+        "source": "CLI overrides (--key value on command line)",
+        "persists": false
+      }
+    ],
+    "principle": "Later layers override earlier ones.",
+    "config_file_format": {
+      "options": {
+        "path.output": "~/my-output",
+        "log.prefix": "DEBUG"
+      }
+    },
+    "options_file_format": {
+      "options": {
+        "path.output": "/ci/build/output",
+        "json.indent.results": 0
+      }
+    }
+  },
+  "lifecycle_phases": [
+    {
+      "phase": "declaring",
+      "when": "Before app.main()",
+      "allowed": "All declare_*/describe_* calls, set_flag() calls"
+    },
+    {
+      "phase": "running",
+      "when": "Inside app.main(), command executing",
+      "allowed": "Reading app.ctx, calling commands"
+    },
+    {
+      "phase": "shutdown",
+      "when": "After command finishes",
+      "allowed": "Nothing"
+    }
+  ],
+  "builtin_commands": [
+    {
+      "name": "set",
+      "syntax": "set <key> <value>",
+      "description": "Persist a configuration value to config.json.",
+      "example": "mytool set path.output ~/my-output"
+    },
+    {
+      "name": "get",
+      "syntax": "get <key>",
+      "description": "Show current state of a key (default, stored value, resolved value).",
+      "example": "mytool get path.output"
+    },
+    {
+      "name": "keys",
+      "syntax": "keys",
+      "description": "List all declared configuration keys with short descriptions.",
+      "example": "mytool keys"
+    },
+    {
+      "name": "help",
+      "syntax": "help [command]",
+      "description": "Show application help. Without argument: lists commands and options. With command name: detailed help.",
+      "example": "mytool help  |  mytool help process"
+    }
+  ],
+  "cli_global_options": [
+    {
+      "syntax": "--<key> <value>",
+      "description": "Override a configuration value for this invocation only (not persisted).",
+      "example": "mytool --path.output /tmp/test process"
+    },
+    {
+      "syntax": "--options-file <path>",
+      "description": "Load batch configuration overrides from a JSON file (must contain 'options' object).",
+      "example": "mytool --options-file dev.json process"
+    },
+    {
+      "syntax": "--execroot <path>",
+      "description": "Override the execution root directory. Only accepted if allow_execroot_override is true.",
+      "example": "mytool --execroot /other/project process"
+    },
+    {
+      "syntax": "--project-dir <name>",
+      "description": "Override the project directory name for this invocation. A directory name only (no slashes), not a full path. Only accepted if allow_projectdir_override is True.",
+      "example": "mytool --project-dir .mytool-staging process"
+    }
+  ],
+  "api": {
+    "declaration_functions": [
+      {
+        "name": "declare_app",
+        "signature": "declare_app(name, version)",
+        "description": "Set the application name and version string.",
+        "example": "app.declare_app('mytool', '1.0')"
+      },
+      {
+        "name": "describe_app",
+        "signature": "describe_app(description, flags='')",
+        "description": "Set a description for the application.",
+        "flags": {
+          "description": "Pass \"\" or \"s\" for short description (default); pass \"l\" for long description.",
+          "values": {
+            "\"\" or \"s\"": "short (default)",
+            "\"l\"": "long"
+          }
+        },
+        "example": "app.describe_app('A tool that does useful things')  |  app.describe_app('Extended details...', 'l')"
+      },
+      {
+        "name": "declare_projectdir",
+        "signature": "declare_projectdir(name)",
+        "description": "Set the name of the project directory where config.json is stored. Created under execution root on first run.",
+        "example": "app.declare_projectdir('.mytool')"
+      },
+      {
+        "name": "declare_cmd",
+        "signature": "declare_cmd(name, fn)",
+        "description": "Bind a command name to a Python callable (no arguments). Use empty string or None for no-command dispatch.",
+        "note": "Built-in names (set, get, help, keys) cannot be used.",
+        "example": "app.declare_cmd(\"work\", do_work)  # named command\napp.declare_cmd(\"\", do_default)   # no-command dispatch",
+        "no_command_dispatch": "To handle bare invocation (no command given), register a handler under the empty string: app.declare_cmd(\"\", my_default_fn). If no handler is registered, bare invocation prints help automatically."
+      },
+      {
+        "name": "describe_cmd",
+        "signature": "describe_cmd(name, description, flags='')",
+        "description": "Set a description for a command.",
+        "flags": {
+          "description": "Pass \"\" or \"s\" for short description (default); pass \"l\" for long description.",
+          "values": {
+            "\"\" or \"s\"": "short (default)",
+            "\"l\"": "long"
+          }
+        },
+        "example": "app.describe_cmd('work', 'Run the main work process')"
+      },
+      {
+        "name": "declare_key",
+        "signature": "declare_key(key, default)",
+        "description": "Declare a configuration key with its default value. Default must be JSON-serializable.",
+        "note": "For keys users will set from CLI or 'set', use string defaults since those values arrive as strings.",
+        "example": "app.declare_key('path.output', '~/output')  |  app.declare_key('json.indent.results', 2)"
+      },
+      {
+        "name": "describe_key",
+        "signature": "describe_key(key, description, flags='')",
+        "description": "Set a description for a configuration key.",
+        "flags": {
+          "description": "Pass \"\" or \"s\" for short description (default); pass \"l\" for long description.",
+          "values": {
+            "\"\" or \"s\"": "short (default)",
+            "\"l\"": "long"
+          }
+        },
+        "example": "app.describe_key('path.output', 'Where output files are written')"
+      },
+      {
+        "name": "set_flag",
+        "signature": "set_flag(flag_name, value)",
+        "description": "Set an application flag. Flags control framework behaviour such as whether certain CLI overrides are accepted.",
+        "parameters": {
+          "flag_name": "Flag name string (e.g. \"allow_projectdir_override\")",
+          "value": "Boolean value to assign"
+        },
+        "raises": "ValueError if value is not a bool",
+        "example": "app.set_flag(\"allow_projectdir_override\", True)\napp.set_flag(\"search_upwards_for_project_dir\", True)",
+        "known_flags": {
+          "search_upwards_for_project_dir": "bool, default False. Walk up directory tree to find project dir.",
+          "allow_execroot_override": "bool, default True. Accept --execroot CLI option.",
+          "allow_projectdir_override": "bool, default True. Accept --project-dir CLI option."
+        }
+      },
+      {
+        "name": "declare",
+        "signature": "declare(spec)",
+        "description": "Mass-declare by deep-merging a specification dictionary into the application model.",
+        "merge_semantics": "Dicts merged recursively; scalars last-value-wins. Does not bind command functions (use declare_cmd for that).",
+        "example": "app.declare({'id': {'name': 'mytool', 'version': '1.0'}, 'names': {'project_dir': '.mytool'}})",
+        "spec_schema": {
+          "id": {
+            "name": "str \u2014 application name",
+            "version": "str \u2014 version string",
+            "short_desc": "str or null \u2014 short description",
+            "long_desc": "str or null \u2014 long description"
+          },
+          "names": {
+            "project_dir": "str \u2014 project directory name (e.g. \".mytool\")"
+          },
+          "flags": {
+            "search_upwards_for_project_dir": "bool",
+            "allow_execroot_override": "bool",
+            "allow_projectdir_override": "bool"
+          },
+          "options": {
+            "<key>": {
+              "default": "any JSON-serializable value",
+              "short": "str or null",
+              "long": "str or null"
+            }
+          },
+          "commands": {
+            "<name>": {
+              "fn": "null (placeholder; bind with declare_cmd)",
+              "short": "str or null",
+              "long": "str or null"
+            }
+          }
+        },
+        "note": "callable fn values cannot appear in declare() spec; use declare_cmd() to bind functions."
+      }
+    ],
+    "entrypoint": {
+      "name": "main",
+      "signature": "main()",
+      "description": "Start the application. Always the last call in your script.",
+      "steps": [
+        "Validate application model",
+        "Parse CLI arguments",
+        "Resolve execution root",
+        "Create project directory if needed",
+        "Load config.json",
+        "Load options file if --options-file given",
+        "Build app.ctx by merging all layers and coercing path.* keys",
+        "Dispatch to appropriate command"
+      ],
+      "exit_codes": {
+        "0": "Command executed successfully",
+        "1": "Validation, configuration, or CLI parsing error",
+        "2": "Unknown command or unbound function",
+        "3": "Uncaught exception from the command"
+      },
+      "example": "app.main()"
+    },
+    "runtime_context": {
+      "name": "ctx",
+      "type": "dict (global)",
+      "description": "Plain dictionary containing merged, coerced configuration for the current invocation. Available during command execution only.",
+      "warning": "Empty before app.main() runs. Do not read at module level or during declarations.",
+      "example": "def my_cmd():\n    out = app.ctx['path.output']   # pathlib.Path\n    prefix = app.ctx['log.prefix'] # 'INFO' (string)"
+    },
+    "path_and_json_utilities": {
+      "get_path": {
+        "signature": "get_path(id, mode='c') -> pathlib.Path",
+        "description": "Resolve a path. Returns an absolute pathlib.Path.",
+        "modes": {
+          "c": "Configured: looks up app.ctx['path.<id>']",
+          "p": "Project: resolves <id> relative to project directory",
+          "e": "Execroot: resolves <id> relative to execution root",
+          "f": "Filesystem: treats <id> as a literal path (absolute, or relative to cwd)"
+        },
+        "example": "app.get_path('output')             # ctx['path.output'] as Path\napp.get_path('cache.json', 'p')   # <project_dir>/cache.json\napp.get_path('data/in.json', 'e') # <execroot>/data/in.json"
+      },
+      "read_json": {
+        "signature": "read_json(id, mode='c') -> any",
+        "description": "Read and parse a JSON file. Mode is a single path flag character (c/p/e/f). Format flags invalid.",
+        "errors": [
+          "FileNotFoundError if file missing",
+          "json.JSONDecodeError if invalid JSON"
+        ],
+        "example": "data = app.read_json('input')           # reads ctx['path.input'] file\ndata = app.read_json('state.json', 'p') # reads <project_dir>/state.json"
+      },
+      "write_json": {
+        "signature": "write_json(id, data, mode='c') -> None",
+        "description": "Write Python data as JSON to a file. Creates parent directories. Adds trailing newline.",
+        "mode_string": "One path flag (c/p/e/f) plus optional format flag (0 or 2). Order independent.",
+        "path_flags": {
+          "c": "configured path via ctx['path.<id>']",
+          "p": "project-relative",
+          "e": "execroot-relative",
+          "f": "literal filesystem path"
+        },
+        "format_flags": {
+          "2": "indent with 2 spaces",
+          "0": "compact, no whitespace (separators=(',',':'))"
+        },
+        "formatting_resolution": [
+          "1. Explicit format flag (0 or 2) always takes precedence.",
+          "2. For 'c' mode without format flag: check ctx['json.indent.<id>'] (0=compact, positive=indent level).",
+          "3. Otherwise: default indent=2."
+        ],
+        "example": "app.write_json('output', results)        # configured path, ctx formatting\napp.write_json('output', results, 'c2') # force pretty\napp.write_json('output', results, 'c0') # force compact\napp.write_json('cache.json', d, 'p2')  # project-relative, pretty\napp.write_json('/tmp/dbg.json', d, 'f') # literal path"
+      }
+    },
+    "introspection": {
+      "get_phase": {
+        "signature": "get_phase() -> str",
+        "description": "Return the current execution phase.",
+        "values": [
+          "declaring",
+          "running",
+          "shutdown"
+        ],
+        "example": "phase = app.get_phase()"
+      }
+    },
+    "testing_and_repl": {
+      "reset": {
+        "signature": "reset()",
+        "description": "Reset all global framework state to declaring-ready. Clears all declarations; phase returns to 'declaring'. For tests and interactive use.",
+        "example": "def setup_function():\n    app.reset()"
+      }
+    },
+    "exceptions": {
+      "StartupError": {
+        "import": "from lionscliapp import StartupError",
+        "description": "Raised by app.main() for pre-dispatch errors: validation failures, missing declarations, bad CLI syntax, config file problems.",
+        "exit_code": 1
+      },
+      "DispatchError": {
+        "import": "from lionscliapp import DispatchError",
+        "description": "Raised by app.main() when command name is not recognized or function is not bound.",
+        "exit_code": 2
+      }
+    }
+  },
+  "application_flags": {
+    "search_upwards_for_project_dir": {
+      "default": false,
+      "meaning": "Walk up directory tree looking for project directory. Makes tool usable from subdirectories (like git finding .git).",
+      "how_to_set": "app.set_flag(\"search_upwards_for_project_dir\", True)"
+    },
+    "allow_execroot_override": {
+      "default": true,
+      "meaning": "When true, --execroot CLI option is accepted.",
+      "how_to_set": "app.set_flag(\"allow_execroot_override\", False)"
+    },
+    "allow_projectdir_override": {
+      "default": true,
+      "meaning": "When True, the --project-dir CLI option is accepted, allowing callers to override the project directory name for a single invocation. Value must be a plain directory name with no path separators.",
+      "how_to_set": "app.set_flag(\"allow_projectdir_override\", False)"
+    }
+  },
+  "minimal_complete_example": {
+    "description": "A small but complete tool demonstrating the framework.",
+    "code": [
+      "import lionscliapp as app",
+      "",
+      "app.declare_app('filetool', '1.0')",
+      "app.describe_app('A tool for file operations')",
+      "app.declare_projectdir('.filetool')",
+      "",
+      "app.declare_key('path.inbox',  '~/inbox')",
+      "app.declare_key('path.output', '~/output')",
+      "app.declare_key('json.indent.results', 2)",
+      "",
+      "app.describe_key('path.inbox',          'Where incoming files are read from')",
+      "app.describe_key('path.output',         'Where output files are written')",
+      "app.describe_key('json.indent.results', 'Indent level for results JSON')",
+      "",
+      "def cmd_process():",
+      "    inbox  = app.ctx['path.inbox']   # pathlib.Path",
+      "    output = app.ctx['path.output']  # pathlib.Path",
+      "    results = {'status': 'ok'}",
+      "    app.write_json('results', results)  # formatted per json.indent.results",
+      "",
+      "app.declare_cmd('process', cmd_process)",
+      "app.describe_cmd('process', 'Process inbox files into output')",
+      "",
+      "app.main()"
+    ]
+  }
+}

@@ -1,11 +1,5 @@
 {
   "inventory": {
-    "lionscliapp.api.v1": {
-      "document_id": "lionscliapp.api.v1",
-      "filepath": "F:/lion/github/lionscliapp/doc/lionscliapp_api.json",
-      "title": "Lion's CLI App (lionscliapp) API Documentation",
-      "purpose": "document how to use Lion's CLI App"
-    },
     "lionscliapp.initial-spec.v0_3": {
       "document_id": "lionscliapp.initial-spec.v0_3",
       "filepath": "F:/lion/github/lionscliapp/doc/spec/initial-spec.json",
@@ -17,6 +11,18 @@
       "filepath": "F:/lion/github/lionscliapp/doc/spec/spec-amendment_read-write-json.json",
       "title": "lionscliapp Spec Addendum: read/write_json",
       "purpose": "Explicate how read_json and write_json shall work now.  Overrules the initial spec."
+    },
+    "lionscliapp.reference": {
+      "document_id": "lionscliapp.reference",
+      "filepath": "F:/lion/github/lionscliapp/doc/reference.md",
+      "title": "lionscliapp Reference Guide",
+      "purpose": "Complete reference documentation for lionscliapp: API, keys, namespaces, JSON I/O, lifecycle, and examples."
+    },
+    "lionscliapp.reference.json": {
+      "document_id": "lionscliapp.reference.json",
+      "filepath": "F:/lion/github/lionscliapp/doc/reference.json",
+      "title": "lionscliapp Reference (JSON, for LLMs)",
+      "purpose": "Machine-readable reference for lionscliapp API, keys, namespaces, JSON I/O, lifecycle, and examples. Intended for LLM consumption."
     }
   }
 }
