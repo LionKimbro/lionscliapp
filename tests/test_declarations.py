@@ -124,39 +124,52 @@ def test_describe_cmd_sets_long_with_l_flag():
 
 def test_declare_key_creates_option_entry():
     """declare_key() creates an option entry with all required keys."""
-    declarations.declare_key("path.output", "/tmp/out")
+    declarations.declare_key("execpath.output", "/tmp/out")
 
-    assert "path.output" in appmodel.application["options"]
-    assert appmodel.application["options"]["path.output"]["default"] == "/tmp/out"
-    assert "short" in appmodel.application["options"]["path.output"]
-    assert "long" in appmodel.application["options"]["path.output"]
+    assert "execpath.output" in appmodel.application["options"]
+    assert appmodel.application["options"]["execpath.output"]["default"] == "/tmp/out"
+    assert "short" in appmodel.application["options"]["execpath.output"]
+    assert "long" in appmodel.application["options"]["execpath.output"]
 
 
 def test_declare_key_overwrites_default():
     """declare_key() overwrites previously declared default."""
-    declarations.declare_key("path.output", "/old")
-    declarations.declare_key("path.output", "/new")
+    declarations.declare_key("execpath.output", "/old")
+    declarations.declare_key("execpath.output", "/new")
 
-    assert appmodel.application["options"]["path.output"]["default"] == "/new"
+    assert appmodel.application["options"]["execpath.output"]["default"] == "/new"
+
+
+def test_declare_key_path_namespace_warns():
+    """declare_key() emits DeprecationWarning for path.* keys."""
+    with pytest.warns(DeprecationWarning, match="'path\\.\\*' namespace is deprecated"):
+        declarations.declare_key("path.output", "/tmp/out")
+
+
+def test_declare_key_path_namespace_warning_names_replacements():
+    """DeprecationWarning for path.* names both execpath and projpath alternatives."""
+    with pytest.warns(DeprecationWarning, match="execpath\\.output") as record:
+        declarations.declare_key("path.output", "/tmp/out")
+    assert "projpath.output" in str(record[0].message)
 
 
 # --- describe_key tests ---
 
 def test_describe_key_creates_entry_with_required_keys():
     """describe_key() creates option entry with all required keys."""
-    declarations.describe_key("path.output", "Output path")
+    declarations.describe_key("execpath.output", "Output path")
 
-    assert "path.output" in appmodel.application["options"]
-    assert appmodel.application["options"]["path.output"]["short"] == "Output path"
-    assert "default" in appmodel.application["options"]["path.output"]
-    assert "long" in appmodel.application["options"]["path.output"]
+    assert "execpath.output" in appmodel.application["options"]
+    assert appmodel.application["options"]["execpath.output"]["short"] == "Output path"
+    assert "default" in appmodel.application["options"]["execpath.output"]
+    assert "long" in appmodel.application["options"]["execpath.output"]
 
 
 def test_describe_key_sets_long_with_l_flag():
     """describe_key() sets long description when flags contains 'l'."""
-    declarations.describe_key("path.output", "Detailed output path info", flags="l")
+    declarations.describe_key("execpath.output", "Detailed output path info", flags="l")
 
-    assert appmodel.application["options"]["path.output"]["long"] == "Detailed output path info"
+    assert appmodel.application["options"]["execpath.output"]["long"] == "Detailed output path info"
 
 
 # --- declare tests (mass declaration) ---
@@ -276,7 +289,7 @@ def test_declared_application_validates():
     declarations.declare_projectdir(".myapp")
     declarations.declare_cmd("run", my_cmd)
     declarations.describe_cmd("run", "Run the app")
-    declarations.declare_key("path.output", "/tmp")
-    declarations.describe_key("path.output", "Output path")
+    declarations.declare_key("execpath.output", "/tmp")
+    declarations.describe_key("execpath.output", "Output path")
 
     appmodel.validate_application()  # Should not raise

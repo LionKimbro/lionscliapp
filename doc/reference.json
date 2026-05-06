@@ -2,9 +2,22 @@
   "document": {
     "document-id": "lionscliapp.reference.v1",
     "title": "lionscliapp Reference Guide",
-    "purpose": "Complete reference for the lionscliapp framework, intended for LLM consumption.",
-    "version": "0.1.2",
-    "import": "import lionscliapp as app"
+    "tags": [
+      "python",
+      "development",
+      "lionscliapp"
+    ],
+    "type": {
+      "logical": {
+        "base": "file",
+        "format": "json",
+        "encoding": "utf-8"
+      },
+      "semantic": {
+        "base": "reference"
+      }
+    },
+    "purpose": "Complete reference for the lionscliapp framework, intended for LLM consumption.\n"
   },
   "what_it_provides": [
     "Persistence: creates a hidden project folder (e.g. .mytool/) with config.json; values set with 'mytool set key value' survive across invocations.",
@@ -29,15 +42,31 @@
     "overview": "Keys are dot-namespaced strings declared with app.declare_key(key, default). All values land in app.ctx after merging.",
     "values_are_strings": "Values from CLI or 'set' command arrive as plain strings. Coerce yourself if needed: int(app.ctx['retry.count']).",
     "namespaces": {
-      "path.*": {
-        "meaning": "Value is converted to pathlib.Path before reaching app.ctx.",
+      "execpath.*": {
+        "meaning": "Value is converted to pathlib.Path, resolved relative to the execution root (where the CLI is invoked).",
         "coercion": [
           "~ expanded via Path.expanduser()",
           "Relative paths resolved against execution root",
           "Absolute paths left as-is"
         ],
-        "example_declaration": "app.declare_key('path.output', '~/output')",
-        "example_usage": "p = app.ctx['path.output']  # pathlib.Path, fully resolved"
+        "example_declaration": "app.declare_key('execpath.output', '~/output')",
+        "example_usage": "p = app.ctx['execpath.output']  # pathlib.Path, fully resolved"
+      },
+      "projpath.*": {
+        "meaning": "Value is converted to pathlib.Path, resolved relative to the project directory (e.g. .mytool/).",
+        "coercion": [
+          "~ expanded via Path.expanduser()",
+          "Relative paths resolved against project directory",
+          "Absolute paths left as-is"
+        ],
+        "example_declaration": "app.declare_key('projpath.cache', 'cache/')",
+        "example_usage": "p = app.ctx['projpath.cache']  # pathlib.Path inside the project dir"
+      },
+      "path.*": {
+        "meaning": "Deprecated alias for execpath.*. Behaves identically. Use execpath.* or projpath.* in new code.",
+        "deprecated": true,
+        "deprecation_note": "declare_key() emits DeprecationWarning when a path.* key is declared. The key continues to work and resolves relative paths against execroot, same as execpath.*.",
+        "migration": "Replace 'path.foo' with 'execpath.foo' (identical behavior) or 'projpath.foo' (project-dir-relative)."
       },
       "json.indent.*": {
         "meaning": "Indentation level (coerced to int) for write_json output. 0 means compact (no whitespace).",
@@ -243,13 +272,13 @@
         "example": "app.declare({'id': {'name': 'mytool', 'version': '1.0'}, 'names': {'project_dir': '.mytool'}})",
         "spec_schema": {
           "id": {
-            "name": "str \u2014 application name",
-            "version": "str \u2014 version string",
-            "short_desc": "str or null \u2014 short description",
-            "long_desc": "str or null \u2014 long description"
+            "name": "str — application name",
+            "version": "str — version string",
+            "short_desc": "str or null — short description",
+            "long_desc": "str or null — long description"
           },
           "names": {
-            "project_dir": "str \u2014 project directory name (e.g. \".mytool\")"
+            "project_dir": "str — project directory name (e.g. \".mytool\")"
           },
           "flags": {
             "search_upwards_for_project_dir": "bool",
@@ -404,17 +433,17 @@
       "app.describe_app('A tool for file operations')",
       "app.declare_projectdir('.filetool')",
       "",
-      "app.declare_key('path.inbox',  '~/inbox')",
-      "app.declare_key('path.output', '~/output')",
+      "app.declare_key('execpath.inbox',  '~/inbox')",
+      "app.declare_key('execpath.output', '~/output')",
       "app.declare_key('json.indent.results', 2)",
       "",
-      "app.describe_key('path.inbox',          'Where incoming files are read from')",
-      "app.describe_key('path.output',         'Where output files are written')",
+      "app.describe_key('execpath.inbox',       'Where incoming files are read from')",
+      "app.describe_key('execpath.output',      'Where output files are written')",
       "app.describe_key('json.indent.results', 'Indent level for results JSON')",
       "",
       "def cmd_process():",
-      "    inbox  = app.ctx['path.inbox']   # pathlib.Path",
-      "    output = app.ctx['path.output']  # pathlib.Path",
+      "    inbox  = app.ctx['execpath.inbox']   # pathlib.Path",
+      "    output = app.ctx['execpath.output']  # pathlib.Path",
       "    results = {'status': 'ok'}",
       "    app.write_json('results', results)  # formatted per json.indent.results",
       "",
