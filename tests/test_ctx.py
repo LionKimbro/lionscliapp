@@ -321,6 +321,234 @@ def test_coerce_path_deep_namespace(tmp_path):
 
 
 # =============================================================================
+# execpath namespace coercion tests
+# =============================================================================
+
+def test_coerce_execpath_absolute(tmp_path):
+    """execpath.* keys are coerced to pathlib.Path (absolute paths unchanged)."""
+    application["names"]["project_dir"] = ".myproject"
+    absolute_path = str(tmp_path / "absolute" / "path")
+    application["options"]["execpath.output"] = {"default": absolute_path, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["execpath.output"], Path)
+        assert ctx["execpath.output"] == Path(absolute_path)
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_execpath_relative_resolved_against_execroot(tmp_path):
+    """execpath.* relative paths are resolved against execroot, not CWD."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["execpath.output"] = {"default": "relative/path", "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["execpath.output"], Path)
+        assert ctx["execpath.output"] == tmp_path / "relative" / "path"
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_execpath_expanduser(tmp_path):
+    """execpath.* keys expand ~ to user home directory."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["execpath.config"] = {"default": "~/myconfig", "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["execpath.config"], Path)
+        assert "~" not in str(ctx["execpath.config"])
+        assert ctx["execpath.config"].is_absolute()
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_execpath_none_allows_none(tmp_path):
+    """execpath.* allows None and keeps it as None."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["execpath.output"] = {"default": None, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert ctx["execpath.output"] is None
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_execpath_non_string_raises(tmp_path):
+    """execpath.* raises ValueError if value is not a string."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["execpath.output"] = {"default": 123, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        with pytest.raises(ValueError, match="path value must be a string"):
+            build_ctx()
+    finally:
+        os.chdir(original_cwd)
+
+
+# =============================================================================
+# projpath namespace coercion tests
+# =============================================================================
+
+def test_coerce_projpath_relative_resolved_against_project_root(tmp_path):
+    """projpath.* relative paths are resolved against project root, not execroot."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["projpath.cache"] = {"default": "cache/", "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["projpath.cache"], Path)
+        assert ctx["projpath.cache"] == tmp_path / ".myproject" / "cache"
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_projpath_absolute_unchanged(tmp_path):
+    """projpath.* absolute paths are left as-is."""
+    application["names"]["project_dir"] = ".myproject"
+    absolute_path = str(tmp_path / "somewhere" / "else")
+    application["options"]["projpath.cache"] = {"default": absolute_path, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["projpath.cache"], Path)
+        assert ctx["projpath.cache"] == Path(absolute_path)
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_projpath_expanduser(tmp_path):
+    """projpath.* keys expand ~ to user home directory."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["projpath.logs"] = {"default": "~/mylogs", "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert isinstance(ctx["projpath.logs"], Path)
+        assert "~" not in str(ctx["projpath.logs"])
+        assert ctx["projpath.logs"].is_absolute()
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_projpath_none_allows_none(tmp_path):
+    """projpath.* allows None and keeps it as None."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["projpath.cache"] = {"default": None, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert ctx["projpath.cache"] is None
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_coerce_projpath_non_string_raises(tmp_path):
+    """projpath.* raises ValueError if value is not a string."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["projpath.cache"] = {"default": 99, "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        with pytest.raises(ValueError, match="path value must be a string"):
+            build_ctx()
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_projpath_differs_from_execpath(tmp_path):
+    """projpath.* and execpath.* resolve to different roots for relative paths."""
+    application["names"]["project_dir"] = ".myproject"
+    application["options"]["execpath.data"] = {"default": "data/", "short": None, "long": None}
+    application["options"]["projpath.data"] = {"default": "data/", "short": None, "long": None}
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        resolve_execroot()
+        load_config()
+        load_options_file()
+
+        build_ctx()
+
+        assert ctx["execpath.data"] == tmp_path / "data"
+        assert ctx["projpath.data"] == tmp_path / ".myproject" / "data"
+        assert ctx["execpath.data"] != ctx["projpath.data"]
+    finally:
+        os.chdir(original_cwd)
+
+
+# =============================================================================
 # json.indent namespace coercion tests
 # =============================================================================
 

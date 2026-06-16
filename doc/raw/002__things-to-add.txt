@@ -1,0 +1,36 @@
+title: Things to Add (#1)
+date: 2026-03-26
+
+== Things to Add ==
+date: 2026-03-26
+
+* I think we need some kind of flags on individual keys.
+  And then we need a flag that says:
+    "Disallow setting a custom default value for this key."
+  That is, you can't use the built-in "set" command to
+  set a default for that specific key.
+
+* I MIGHT want to allow using two words for mapping to a fn.
+  When I was working on renderlab, Chat-GPT was saying
+  that we should have commands like:
+    renderlab recipe create
+    renderlab recipe list
+    renderlab recipe clone
+
+  I worked around it with:
+    renderlab recipe:create
+    renderlab recipe:list
+    renderlab recipe:clone
+
+  ...which: Was FINE, really...
+  It's hard to know if I want actual parameters, or not.
+  The named parameters is actually working, like: really well.
+  
+    fn-select --arg <arg> --arg <arg> --arg <arg>
+
+  I think mainly what's needed is the capacity to protect
+  some arguments, and say that they can NOT be assigned
+  defaults, via "set", which could lead to mysterious
+  behavior, if not expected.
+
+

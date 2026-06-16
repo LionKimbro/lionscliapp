@@ -11,7 +11,9 @@ configuration at runtime. The ctx is built by:
 5. Coercing values by namespace policies
 
 Namespace coercion rules (from spec):
-    path.*        -> pathlib.Path (expanduser, relative resolved against execroot)
+    execpath.*    -> pathlib.Path (expanduser, relative resolved against execroot)
+    projpath.*    -> pathlib.Path (expanduser, relative resolved against project dir)
+    path.*        -> same as execpath.* (deprecated; use execpath.* or projpath.*)
     json.indent.* -> int >= 0; indent=0 means compact (no whitespace)
     (unknown)     -> identity (no coercion)
 
@@ -86,8 +88,10 @@ def _coerce_value(key, value):
     """
     namespace = _get_namespace(key)
 
-    if namespace == "path":
+    if namespace in ("path", "execpath"):
         return _coerce_path(key, value)
+    elif namespace == "projpath":
+        return _coerce_projpath(key, value)
     elif namespace == "json.indent":
         return _coerce_json_indent(key, value)
     else:
@@ -146,6 +150,41 @@ def _coerce_path(key, value):
 
     if not p.is_absolute():
         p = execroot.get_execroot() / p
+
+    return p
+
+
+def _coerce_projpath(key, value):
+    """
+    Coerce a projpath.* value to pathlib.Path, resolved against project root.
+
+    Processing:
+        1. expanduser() to handle ~ paths
+        2. If relative, resolve against project root (not execroot, not CWD)
+
+    Args:
+        key: The option key (for error messages)
+        value: The value to coerce (must be a string)
+
+    Returns:
+        A pathlib.Path instance (absolute).
+
+    Raises:
+        ValueError: If value is not a valid path string.
+    """
+    from lionscliapp.paths import get_project_root
+
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Option {key!r}: path value must be a string, got {type(value).__name__}"
+        )
+
+    p = Path(value).expanduser()
+
+    if not p.is_absolute():
+        p = get_project_root() / p
 
     return p
 

@@ -12,8 +12,10 @@ Usage:
     app.declare_app("mytool", "1.0")
     app.declare_projectdir(".mytool")
     app.declare_cmd("run", my_run_function)
-    app.declare_key("path.output", "/tmp/out")
+    app.declare_key("execpath.output", "/tmp/out")
 """
+
+import warnings
 
 from lionscliapp.runtime_state import require_declaring_phase
 from lionscliapp.application import application
@@ -111,10 +113,19 @@ def declare_key(key, default):
     The option entry is created if it doesn't exist (with all required keys).
 
     Args:
-        key: Option key (dot-namespaced string, e.g., "path.output")
+        key: Option key (dot-namespaced string, e.g., "execpath.output")
         default: Default value (JSON-serializable)
     """
     require_declaring_phase()
+    if key.startswith("path."):
+        unprefixed = key[5:]
+        warnings.warn(
+            f"declare_key({key!r}, ...): the 'path.*' namespace is deprecated. "
+            f"Use 'execpath.{unprefixed}' (same behavior, execroot-relative) "
+            f"or 'projpath.{unprefixed}' (project-dir-relative).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     if key not in application["options"]:
         application["options"][key] = {
             "default": None,
