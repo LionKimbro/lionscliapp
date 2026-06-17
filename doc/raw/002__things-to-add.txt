@@ -34,3 +34,14 @@ date: 2026-03-26
   behavior, if not expected.
 
 
+== 2026-06-17 ==
+date: 2026-06-17
+
+Add:
+* type-specifications for keys
+* "default" as a key value for paths
+* paths that are relative to specific named locations -- relative to cwd, relative to project directory, relative to user home directory, relative to containing folder of project directory
+* policies for locating project directory -- cwd, scanned for upwards from cwd, user home directory, fixed path, a search across the above
+* policies for establishing project directory (when the project can't be found): cwd, user home directory, a fixed location, a user specified location (on first run)
+
+
