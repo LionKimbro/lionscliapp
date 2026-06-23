@@ -209,3 +209,6 @@ __marimo__/
 
 # Claude
 .claude/
+
+# Lion's Stuff
+.context-jetpack
