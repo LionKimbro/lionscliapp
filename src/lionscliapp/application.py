@@ -60,7 +60,8 @@ def reset_application():
         "flags": {
             "search_upwards_for_project_dir": False,
             "allow_execroot_override": True,
-            "allow_projectdir_override": True
+            "allow_projectdir_override": True,
+            "uses_locking": False
         },
         "options": {},
         "commands": {}
@@ -238,6 +239,21 @@ def _validate_commands():
                 val = cmd_schema[field]
                 if val is not None and not isinstance(val, str):
                     _errors.append(f"commands.{cmd_name}.{field}: must be a string or null")
+
+        if "flags" not in cmd_schema:
+            _errors.append(f"commands.{cmd_name}.flags: missing required field")
+        elif not isinstance(cmd_schema["flags"], dict):
+            _errors.append(f"commands.{cmd_name}.flags: must be a dict")
+        else:
+            for flag_name, flag_value in cmd_schema["flags"].items():
+                if not isinstance(flag_name, str):
+                    _errors.append(
+                        f"commands.{cmd_name}.flags: key {flag_name!r} must be a string"
+                    )
+                if not isinstance(flag_value, bool):
+                    _errors.append(
+                        f"commands.{cmd_name}.flags.{flag_name}: must be a boolean"
+                    )
 
 
 def _check_json_serializable(value, path):

@@ -11,7 +11,7 @@
 - **Multiple commands** — Bind as many sub-commands as you like, or declare a default handler for bare invocations.
 - **Paths are native** — Any key prefixed with `path.` becomes a `pathlib.Path`, expanded and resolved automatically.
 - **JSON is native** — `read_json()` and `write_json()` handle path resolution and formatting. Reading or writing a named JSON file is a one-liner.
-- **Built-in commands** — `set`, `get`, `keys`, and `help` are always available for free.
+- **Built-in commands** — `set`, `get`, `keys`, `help`, and `help-basics` are always available for free. If locking is enabled, `unlock` is available too.
 
 ## What It Doesn't Do
 
@@ -44,6 +44,10 @@ def cmd_run():
 
 app.declare_cmd("run", cmd_run)
 app.describe_cmd("run", "Run the main process")
+
+# Optional: enable locking for state-mutating commands
+# app.set_flag("uses_locking", True)
+# app.set_cmd_flag("run", "locking", True)
 
 app.main()
 ```

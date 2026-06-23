@@ -25,7 +25,7 @@
     "Multiple commands: bind sub-commands with declare_cmd; declare a default (no-command) handler for bare invocation.",
     "Paths are native: any key prefixed with 'path.' is automatically converted to a pathlib.Path (expanded, resolved). read_json/write_json take path names directly.",
     "JSON is native: read_json('input') and write_json('output', data) require no import json, no open/close, no path construction.",
-    "Built-in commands: set, get, keys, help, and help-basics are always available without any work."
+    "Built-in commands: set, get, keys, help, and help-basics are always available without any work. If uses_locking is enabled, unlock is also available."
   ],
   "what_it_does_not_do": [
     "No automatic type coercion for general keys (except path.* and json.indent.*). All other values are strings.",
@@ -162,6 +162,12 @@
       "syntax": "help-basics",
       "description": "Show framework-oriented lionscliapp help, including built-in commands, configuration layering, and special options such as --execroot and --project-dir.",
       "example": "mytool help-basics"
+    },
+    {
+      "name": "unlock",
+      "syntax": "unlock",
+      "description": "Remove a stale lock.json file from the project directory. Available only when uses_locking is true.",
+      "example": "mytool unlock"
     }
   ],
   "cli_global_options": [
@@ -217,7 +223,7 @@
         "name": "declare_cmd",
         "signature": "declare_cmd(name, fn)",
         "description": "Bind a command name to a Python callable (no arguments). Use empty string or None for no-command dispatch.",
-        "note": "Built-in names (set, get, help, help-basics, keys) cannot be used.",
+        "note": "Built-in names (set, get, help, help-basics, keys, and unlock when uses_locking is enabled) cannot be used.",
         "example": "app.declare_cmd(\"work\", do_work)  # named command\napp.declare_cmd(\"\", do_default)   # no-command dispatch",
         "no_command_dispatch": "To handle bare invocation (no command given), register a handler under the empty string: app.declare_cmd(\"\", my_default_fn). If no handler is registered, bare invocation prints help automatically."
       },
@@ -233,6 +239,21 @@
           }
         },
         "example": "app.describe_cmd('work', 'Run the main work process')"
+      },
+      {
+        "name": "set_cmd_flag",
+        "signature": "set_cmd_flag(name, flag_name, value)",
+        "description": "Set a boolean flag on a specific command. This is used for command-level framework behavior such as locking.",
+        "parameters": {
+          "name": "Command name string",
+          "flag_name": "Flag name string (e.g. \"locking\")",
+          "value": "Boolean value to assign"
+        },
+        "raises": "ValueError if value is not a bool",
+        "example": "app.set_cmd_flag('sync', 'locking', True)",
+        "known_flags": {
+          "locking": "bool, default False. If True, the command acquires lock.json before execution and releases it afterward."
+        }
       },
       {
         "name": "declare_key",
@@ -263,11 +284,12 @@
           "value": "Boolean value to assign"
         },
         "raises": "ValueError if value is not a bool",
-        "example": "app.set_flag(\"allow_projectdir_override\", True)\napp.set_flag(\"search_upwards_for_project_dir\", True)",
+        "example": "app.set_flag(\"allow_projectdir_override\", True)\napp.set_flag(\"search_upwards_for_project_dir\", True)\napp.set_flag(\"uses_locking\", True)",
         "known_flags": {
           "search_upwards_for_project_dir": "bool, default False. Walk up directory tree to find project dir.",
           "allow_execroot_override": "bool, default True. Accept --execroot CLI option.",
-          "allow_projectdir_override": "bool, default True. Accept --project-dir CLI option."
+          "allow_projectdir_override": "bool, default True. Accept --project-dir CLI option.",
+          "uses_locking": "bool, default False. Enable the locking subsystem and the built-in unlock command."
         }
       },
       {
@@ -289,7 +311,8 @@
           "flags": {
             "search_upwards_for_project_dir": "bool",
             "allow_execroot_override": "bool",
-            "allow_projectdir_override": "bool"
+            "allow_projectdir_override": "bool",
+            "uses_locking": "bool"
           },
           "options": {
             "<key>": {
@@ -302,7 +325,10 @@
             "<name>": {
               "fn": "null (placeholder; bind with declare_cmd)",
               "short": "str or null",
-              "long": "str or null"
+              "long": "str or null",
+              "flags": {
+                "locking": "bool"
+              }
             }
           }
         },
@@ -321,6 +347,7 @@
         "Load config.json",
         "Load options file if --options-file given",
         "Build app.ctx by merging all layers and coercing path.* keys",
+        "Acquire lock.json if the selected command has locking=True",
         "Dispatch to appropriate command"
       ],
       "exit_codes": {

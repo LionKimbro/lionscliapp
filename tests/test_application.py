@@ -29,6 +29,8 @@ def test_reset_application_sets_default_flags():
     flags = appmodel.application["flags"]
     assert flags["search_upwards_for_project_dir"] is False
     assert flags["allow_execroot_override"] is True
+    assert flags["allow_projectdir_override"] is True
+    assert flags["uses_locking"] is False
 
 
 def test_reset_application_skeleton_requires_project_dir():
@@ -141,7 +143,8 @@ def test_validate_application_accepts_valid_commands():
     appmodel.application["commands"]["run"] = {
         "fn": my_cmd,
         "short": "Run the thing",
-        "long": None
+        "long": None,
+        "flags": {"locking": False}
     }
 
     appmodel.validate_application()  # Should not raise
@@ -154,7 +157,8 @@ def test_validate_application_accepts_null_command_fn():
     appmodel.application["commands"]["run"] = {
         "fn": None,
         "short": "Run the thing",
-        "long": None
+        "long": None,
+        "flags": {"locking": False}
     }
 
     appmodel.validate_application()  # Should not raise
@@ -165,7 +169,8 @@ def test_validate_application_catches_missing_command_fn():
     appmodel.reset_application()
     appmodel.application["commands"]["run"] = {
         "short": "Run the thing",
-        "long": None
+        "long": None,
+        "flags": {"locking": False}
         # Missing "fn"
     }
 
@@ -179,7 +184,8 @@ def test_validate_application_catches_invalid_command_fn():
     appmodel.application["commands"]["run"] = {
         "fn": "not callable",
         "short": None,
-        "long": None
+        "long": None,
+        "flags": {"locking": False}
     }
 
     with pytest.raises(ValueError, match="commands.run.fn: must be null or callable"):
@@ -217,7 +223,8 @@ def test_validate_application_catches_callable_in_command_short():
     appmodel.application["commands"]["run"] = {
         "fn": my_cmd,
         "short": lambda: "bad",  # Callable not allowed here
-        "long": None
+        "long": None,
+        "flags": {"locking": False}
     }
 
     with pytest.raises(ValueError, match="contains callable"):
@@ -251,7 +258,12 @@ def test_reset_application_clears_previous_state():
     appmodel.application["names"]["project_dir"] = ".myapp"
     appmodel.application["flags"]["custom_flag"] = True
     appmodel.application["options"]["path.scan"] = {"default": "/tmp"}
-    appmodel.application["commands"]["foo"] = {"fn": lambda: None}
+    appmodel.application["commands"]["foo"] = {
+        "fn": lambda: None,
+        "short": None,
+        "long": None,
+        "flags": {"locking": False}
+    }
 
     appmodel.reset_application()
 
@@ -268,7 +280,8 @@ def test_reset_application_clears_previous_state():
         "flags": {
             "search_upwards_for_project_dir": False,
             "allow_execroot_override": True,
-            "allow_projectdir_override": True
+            "allow_projectdir_override": True,
+            "uses_locking": False
         },
         "options": {},
         "commands": {}
@@ -353,4 +366,46 @@ def test_validate_application_catches_missing_command_long():
     }
 
     with pytest.raises(ValueError, match="commands.run.long: missing required field"):
+        appmodel.validate_application()
+
+
+def test_validate_application_catches_missing_command_flags():
+    """validate_application() catches missing flags in command schema."""
+    appmodel.reset_application()
+    appmodel.application["commands"]["run"] = {
+        "fn": None,
+        "short": "Run the thing",
+        "long": None
+        # Missing "flags"
+    }
+
+    with pytest.raises(ValueError, match="commands.run.flags: missing required field"):
+        appmodel.validate_application()
+
+
+def test_validate_application_catches_non_dict_command_flags():
+    """validate_application() catches non-dict flags in command schema."""
+    appmodel.reset_application()
+    appmodel.application["commands"]["run"] = {
+        "fn": None,
+        "short": "Run the thing",
+        "long": None,
+        "flags": "bad"
+    }
+
+    with pytest.raises(ValueError, match="commands.run.flags: must be a dict"):
+        appmodel.validate_application()
+
+
+def test_validate_application_catches_non_boolean_command_flag():
+    """validate_application() catches non-bool command flag values."""
+    appmodel.reset_application()
+    appmodel.application["commands"]["run"] = {
+        "fn": None,
+        "short": "Run the thing",
+        "long": None,
+        "flags": {"locking": "yes"}
+    }
+
+    with pytest.raises(ValueError, match="commands.run.flags.locking: must be a boolean"):
         appmodel.validate_application()

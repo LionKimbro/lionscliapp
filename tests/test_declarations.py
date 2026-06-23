@@ -76,6 +76,7 @@ def test_declare_cmd_creates_command_entry():
     assert appmodel.application["commands"]["run"]["fn"] is my_fn
     assert "short" in appmodel.application["commands"]["run"]
     assert "long" in appmodel.application["commands"]["run"]
+    assert appmodel.application["commands"]["run"]["flags"]["locking"] is False
 
 
 def test_declare_cmd_binds_fn_to_existing_entry():
@@ -111,6 +112,7 @@ def test_describe_cmd_creates_entry_with_required_keys():
     assert appmodel.application["commands"]["build"]["short"] == "Build the project"
     assert "fn" in appmodel.application["commands"]["build"]
     assert "long" in appmodel.application["commands"]["build"]
+    assert appmodel.application["commands"]["build"]["flags"]["locking"] is False
 
 
 def test_describe_cmd_sets_long_with_l_flag():
@@ -118,6 +120,34 @@ def test_describe_cmd_sets_long_with_l_flag():
     declarations.describe_cmd("build", "Detailed build instructions", flags="l")
 
     assert appmodel.application["commands"]["build"]["long"] == "Detailed build instructions"
+
+
+# --- set_cmd_flag tests ---
+
+def test_set_cmd_flag_sets_locking_flag():
+    """set_cmd_flag() sets a boolean flag on an existing command."""
+    declarations.describe_cmd("build", "Build the project")
+
+    declarations.set_cmd_flag("build", "locking", True)
+
+    assert appmodel.application["commands"]["build"]["flags"]["locking"] is True
+
+
+def test_set_cmd_flag_creates_command_entry_if_missing():
+    """set_cmd_flag() creates a command entry when needed."""
+    declarations.set_cmd_flag("build", "locking", True)
+
+    assert "build" in appmodel.application["commands"]
+    assert appmodel.application["commands"]["build"]["fn"] is None
+    assert appmodel.application["commands"]["build"]["short"] is None
+    assert appmodel.application["commands"]["build"]["long"] is None
+    assert appmodel.application["commands"]["build"]["flags"]["locking"] is True
+
+
+def test_set_cmd_flag_rejects_non_boolean_values():
+    """set_cmd_flag() rejects non-bool values."""
+    with pytest.raises(ValueError, match="must be a bool"):
+        declarations.set_cmd_flag("build", "locking", "yes")
 
 
 # --- declare_key tests ---
@@ -251,6 +281,14 @@ def test_describe_cmd_raises_when_not_declaring_phase():
 
     with pytest.raises(RuntimeError, match="not permitted"):
         declarations.describe_cmd("test", "desc")
+
+
+def test_set_cmd_flag_raises_when_not_declaring_phase():
+    """set_cmd_flag() raises when phase is not 'declaring'."""
+    runtime_state._state["phase"] = "running"
+
+    with pytest.raises(RuntimeError, match="not permitted"):
+        declarations.set_cmd_flag("test", "locking", True)
 
 
 def test_declare_key_raises_when_not_declaring_phase():

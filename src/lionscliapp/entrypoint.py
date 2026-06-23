@@ -29,6 +29,7 @@ from lionscliapp import cli_parsing
 from lionscliapp import cli_state
 from lionscliapp import config_io
 from lionscliapp import override_inputs
+from lionscliapp import locking
 from lionscliapp.ctx import build_ctx
 from lionscliapp.paths import ensure_project_root_exists
 from lionscliapp.dispatch import dispatch_command, DispatchError
@@ -61,7 +62,8 @@ def main():
     """
     try:
         _startup()
-    except StartupError as e:
+        locking.acquire_lock_for_current_command()
+    except (StartupError, locking.LockError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
@@ -75,6 +77,10 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(3)
     finally:
+        try:
+            locking.release_lock_for_current_command()
+        except locking.LockError as e:
+            print(f"Error: {e}", file=sys.stderr)
         # Transition to shutdown
         runtime_state.transition_to_shutdown()
 

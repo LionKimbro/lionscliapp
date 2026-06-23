@@ -44,6 +44,15 @@ def test_is_builtin_help_basics():
     assert is_builtin("help-basics") is True
 
 
+def test_is_builtin_unlock_is_disabled_by_default():
+    assert is_builtin("unlock") is False
+
+
+def test_is_builtin_unlock_when_locking_enabled():
+    declarations.set_flag("uses_locking", True)
+    assert is_builtin("unlock") is True
+
+
 def test_is_builtin_unknown():
     assert is_builtin("build") is False
     assert is_builtin("run") is False
@@ -330,6 +339,25 @@ def test_cmd_help_builtin_help_basics(tmp_path, monkeypatch, capsys):
     assert "framework-oriented" in captured.out
 
 
+def test_cmd_help_builtin_unlock(tmp_path, monkeypatch, capsys):
+    """help unlock shows unlock command help when locking is enabled."""
+    monkeypatch.chdir(tmp_path)
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.set_flag("uses_locking", True)
+
+    _simulate_startup(tmp_path)
+
+    cli_state.g["command_help"] = "unlock"
+
+    cmd_help()
+
+    captured = capsys.readouterr()
+    assert "unlock" in captured.out
+    assert "stale lock.json" in captured.out
+
+
 def test_cmd_help_user_command(tmp_path, monkeypatch, capsys):
     """help <user-command> shows user command help."""
     monkeypatch.chdir(tmp_path)
@@ -415,6 +443,7 @@ def test_main_help_command(tmp_path, monkeypatch, capsys):
     declarations.declare_app("myapp", "1.0")
     declarations.describe_app("My application", "s")
     declarations.declare_projectdir(".myapp")
+    declarations.set_flag("uses_locking", True)
 
     app.main()
 
@@ -424,6 +453,7 @@ def test_main_help_command(tmp_path, monkeypatch, capsys):
     assert "set" in captured.out
     assert "get" in captured.out
     assert "help-basics" in captured.out
+    assert "unlock" in captured.out
 
 
 def test_main_help_specific_command(tmp_path, monkeypatch, capsys):
@@ -455,6 +485,21 @@ def test_main_help_basics_command(tmp_path, monkeypatch, capsys):
     assert "--execroot" in captured.out
     assert "--project-dir" in captured.out
     assert "--options-file" in captured.out
+
+
+def test_main_unlock_command_without_lock_file(tmp_path, monkeypatch, capsys):
+    """unlock reports when no lock file is present."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp", "unlock"])
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.set_flag("uses_locking", True)
+
+    app.main()
+
+    captured = capsys.readouterr()
+    assert "No lock file is present." in captured.out
 
 
 def test_builtin_takes_precedence_over_user_command(tmp_path, monkeypatch, capsys):

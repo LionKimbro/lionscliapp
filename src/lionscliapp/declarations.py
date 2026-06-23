@@ -76,7 +76,10 @@ def declare_cmd(name, fn):
         application["commands"][name] = {
             "fn": None,
             "short": None,
-            "long": None
+            "long": None,
+            "flags": {
+                "locking": False
+            }
         }
     application["commands"][name]["fn"] = fn
 
@@ -97,12 +100,50 @@ def describe_cmd(name, description, flags=""):
         application["commands"][name] = {
             "fn": None,
             "short": None,
-            "long": None
+            "long": None,
+            "flags": {
+                "locking": False
+            }
         }
     if "l" in flags:
         application["commands"][name]["long"] = description
     else:
         application["commands"][name]["short"] = description
+
+
+def set_cmd_flag(name, flag_name, value):
+    """
+    Set a boolean flag on a specific command.
+
+    The command entry is created if it does not yet exist, with default
+    command fields and default command flags.
+
+    Args:
+        name: Command name
+        flag_name: Command flag name (e.g. "locking")
+        value: Boolean value to assign
+    """
+    require_declaring_phase()
+    if not isinstance(value, bool):
+        raise ValueError(
+            f"set_cmd_flag: value for '{flag_name}' on command {name!r} "
+            f"must be a bool, got {type(value).__name__!r}"
+        )
+
+    if name not in application["commands"]:
+        application["commands"][name] = {
+            "fn": None,
+            "short": None,
+            "long": None,
+            "flags": {
+                "locking": False
+            }
+        }
+
+    if "flags" not in application["commands"][name]:
+        application["commands"][name]["flags"] = {"locking": False}
+
+    application["commands"][name]["flags"][flag_name] = value
 
 
 def declare_key(key, default):

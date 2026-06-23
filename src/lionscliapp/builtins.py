@@ -15,15 +15,21 @@ be shadowed.
 from lionscliapp import application as appmodel
 from lionscliapp import cli_state
 from lionscliapp import config_io
+from lionscliapp import locking
 from lionscliapp.ctx import ctx, _coerce_value
 
 
 BUILTIN_COMMANDS = frozenset({"set", "get", "help", "help-basics", "keys"})
+LOCKING_BUILTIN_COMMANDS = frozenset({"unlock"})
 
 
 def is_builtin(command: str) -> bool:
     """Return True if command is a built-in command name."""
-    return command in BUILTIN_COMMANDS
+    if command in BUILTIN_COMMANDS:
+        return True
+    if command in LOCKING_BUILTIN_COMMANDS and locking.uses_locking():
+        return True
+    return False
 
 
 def run_builtin(command: str):
@@ -46,6 +52,8 @@ def run_builtin(command: str):
         return cmd_help_basics()
     elif command == "keys":
         return cmd_keys()
+    elif command == "unlock":
+        return cmd_unlock()
 
 
 # =============================================================================
@@ -128,7 +136,7 @@ def cmd_help():
 def _show_command_help(command: str):
     """Show detailed help for a specific command."""
     # Check built-in commands first
-    if command in BUILTIN_COMMANDS:
+    if is_builtin(command):
         _show_builtin_help(command)
         return
 
@@ -204,6 +212,17 @@ def _show_builtin_help(command: str):
         print("Example:")
         print("  keys")
 
+    elif command == "unlock":
+        print("unlock")
+        print()
+        print("Remove a stale lock.json file from the project directory.")
+        print()
+        print("Use this only when a previous lock-requiring execution crashed")
+        print("or the machine lost power and left the project locked.")
+        print()
+        print("Example:")
+        print("  unlock")
+
 
 def _show_user_command_help(name: str, cmd_schema: dict):
     """Show help for a user-declared command."""
@@ -250,6 +269,8 @@ def _show_general_help():
     print(f"  {'keys':24} List all configuration keys")
     print(f"  {'help [command]':24} Show this help")
     print(f"  {'help-basics':24} Show framework usage basics")
+    if locking.uses_locking():
+        print(f"  {'unlock':24} Remove a stale project lock")
 
     # User commands
     commands = app["commands"]
@@ -325,6 +346,8 @@ def cmd_help_basics():
     print("  keys                 List declared configuration keys")
     print("  help [command]       Show app and command help")
     print("  help-basics          Show this framework help")
+    if locking.uses_locking():
+        print("  unlock               Remove a stale project lock")
     print()
     print("Special key namespaces:")
     print("  execpath.*       Path resolved relative to execroot")
@@ -363,6 +386,23 @@ def cmd_keys():
             print(f"  {key:24} {short}")
         else:
             print(f"  {key:24} (default: {default!r})")
+
+
+# =============================================================================
+# unlock command
+# =============================================================================
+
+def cmd_unlock():
+    """Remove a stale lock.json file from the project directory."""
+    payload = locking.remove_lock_file()
+    if payload is None:
+        print("No lock file is present.")
+        return
+
+    print("Removed lock file.")
+    print(f"  command: {payload.get('command')!r}")
+    print(f"  pid: {payload.get('pid')!r}")
+    print(f"  created_at: {payload.get('created_at')!r}")
 
 
 # =============================================================================

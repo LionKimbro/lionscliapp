@@ -74,7 +74,7 @@ Many useful command-line tools need memory — configuration, stored data, and p
 
 **JSON is native.** The framework is built on the idea that JSON files are a good communication format between programs — readable, diffable, inspectable. Reading a named JSON input and writing a named JSON output requires no `import json`, no open/close, no path construction. Just `app.read_json("input")` and `app.write_json("output", data)`.
 
-**Built-in commands.** `set`, `get`, `keys`, `help`, and `help-basics` are always available without any work on your part.
+**Built-in commands.** `set`, `get`, `keys`, `help`, and `help-basics` are always available without any work on your part. If the application enables locking with `app.set_flag("uses_locking", True)`, the built-in `unlock` command is also available.
 
 ### What It Doesn't Do
 
@@ -324,7 +324,7 @@ Relative paths in `--options-file` are resolved against the execution root.
 
 ## Built-in Commands
 
-These four commands are always available. You do not declare them, and they cannot be overridden.
+These built-in commands are available without declaration and cannot be overridden. `unlock` appears only when locking is enabled for the application.
 
 ### `set <key> <value>`
 
@@ -378,6 +378,18 @@ This includes things like:
 
 ```bash
 mytool help-basics
+```
+
+### `unlock`
+
+Remove a stale `lock.json` file from the project directory.
+
+This command is available only when the application enables locking with `app.set_flag("uses_locking", True)`.
+
+Use it when a previous lock-requiring command crashed or the machine lost power and left the project locked.
+
+```bash
+mytool unlock
 ```
 
 ---
@@ -598,7 +610,7 @@ app.declare_cmd("work", do_work)
 - `name` — Command name (string)
 - `fn` — Callable with no arguments
 
-Built-in command names (`set`, `get`, `help`, `keys`) cannot be used as user command names.
+Built-in command names (`set`, `get`, `help`, `help-basics`, `keys`, and `unlock` when locking is enabled) cannot be used as user command names.
 
 ---
 
@@ -615,6 +627,27 @@ app.describe_cmd("work", "Full description of what work does...", "l")
 - `name` — Command name (string)
 - `description` — Description text (string)
 - `flags` — `""` or `"s"` for short (default); `"l"` for long
+
+---
+
+#### `app.set_cmd_flag(name, flag_name, value)`
+
+Set a boolean flag on a specific command.
+
+```python
+app.set_cmd_flag("sync", "locking", True)
+```
+
+**Parameters:**
+- `name` — Command name (string)
+- `flag_name` — Command flag name (string, e.g. `"locking"`)
+- `value` — Boolean value to assign
+
+Known command flags:
+
+- `locking` — default `False`. If `True`, the command acquires `lock.json` just before execution and releases it afterward.
+
+Raises `ValueError` if `value` is not a `bool`.
 
 ---
 
@@ -659,6 +692,7 @@ Set an application flag. Flags control framework behaviour such as whether certa
 ```python
 app.set_flag("allow_projectdir_override", True)
 app.set_flag("search_upwards_for_project_dir", True)
+app.set_flag("uses_locking", True)
 ```
 
 **Parameters:**
@@ -688,7 +722,7 @@ app.declare({
         "retry.count": {"default": 3}
     },
     "commands": {
-        "work": {"short": "Do the work"}
+        "work": {"short": "Do the work", "flags": {"locking": True}}
     }
 })
 ```
@@ -718,7 +752,8 @@ The framework:
 5. Loads `config.json`
 6. Loads the options file (if `--options-file` was given)
 7. Builds `app.ctx` by merging all layers (coercing `path.*` keys to `pathlib.Path`)
-8. Dispatches to the appropriate command
+8. If needed, acquires `lock.json` for a lock-requiring command
+9. Dispatches to the appropriate command
 
 **Exit codes:**
 
@@ -907,5 +942,21 @@ When `True`, the `--project-dir` CLI option is accepted, allowing callers to ove
 ```python
 app.set_flag("allow_projectdir_override", False)
 ```
+
+### `uses_locking`
+
+Enable framework-managed command locking.
+
+```python
+app.set_flag("uses_locking", True)
+app.set_cmd_flag("sync", "locking", True)
+```
+
+When enabled:
+
+- commands marked with `locking=True` create `lock.json` in the resolved project directory just before execution
+- the lock file records `lock_id`, `command`, `pid`, and `created_at`
+- the file is removed after successful completion or after an uncaught command exception
+- a stale lock can be cleared with the built-in `unlock` command
 
 Default: `True`.

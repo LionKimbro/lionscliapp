@@ -51,6 +51,19 @@ def get_config_path():
     return get_project_root() / "config.json"
 
 
+def get_lock_path():
+    """
+    Return the absolute path to the project's lock.json file.
+
+    Returns:
+        Path: Absolute path to lock.json within the project directory
+
+    Raises:
+        RuntimeError: If execroot has not been initialized
+    """
+    return get_project_root() / "lock.json"
+
+
 def ensure_project_root_exists():
     """
     Create the project directory if it does not exist.
@@ -139,4 +152,3 @@ def _resolve_filesystem(id: str) -> Path:
     if p.is_absolute():
         return p
     return Path.cwd() / p
-

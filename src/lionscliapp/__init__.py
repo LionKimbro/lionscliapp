@@ -15,6 +15,7 @@ from lionscliapp import override_inputs
 from lionscliapp import ctx as ctx_module
 from lionscliapp import dispatch
 from lionscliapp import builtins
+from lionscliapp import locking
 
 from lionscliapp.ctx import ctx
 
@@ -29,6 +30,7 @@ from lionscliapp.declarations import (
     declare_projectdir,
     declare_cmd,
     describe_cmd,
+    set_cmd_flag,
     declare_key,
     describe_key,
     set_flag,
@@ -51,4 +53,5 @@ def reset():
     cli_state.reset_cli_state()
     override_inputs.reset_override_inputs()
     ctx_module.reset_ctx()
+    locking.reset_locking()
 
