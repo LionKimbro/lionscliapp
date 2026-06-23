@@ -6,6 +6,7 @@ Built-in commands are:
     get <key>           - Display a configuration value
     keys                - List all configuration keys
     help [command]      - Show help for commands and options
+    help-basics         - Show framework-oriented usage basics
 
 Built-in commands are checked before user-declared commands and cannot
 be shadowed.
@@ -17,7 +18,7 @@ from lionscliapp import config_io
 from lionscliapp.ctx import ctx, _coerce_value
 
 
-BUILTIN_COMMANDS = frozenset({"set", "get", "help", "keys"})
+BUILTIN_COMMANDS = frozenset({"set", "get", "help", "help-basics", "keys"})
 
 
 def is_builtin(command: str) -> bool:
@@ -41,6 +42,8 @@ def run_builtin(command: str):
         return cmd_get()
     elif command == "help":
         return cmd_help()
+    elif command == "help-basics":
+        return cmd_help_basics()
     elif command == "keys":
         return cmd_keys()
 
@@ -178,6 +181,18 @@ def _show_builtin_help(command: str):
         print("  help")
         print("  help set")
 
+    elif command == "help-basics":
+        print("help-basics")
+        print()
+        print("Show framework-oriented usage basics for lionscliapp.")
+        print()
+        print("This command explains built-in framework behavior such as")
+        print("--execroot, --project-dir, options files, built-in commands,")
+        print("and the special key namespaces used by lionscliapp.")
+        print()
+        print("Example:")
+        print("  help-basics")
+
     elif command == "keys":
         print("keys")
         print()
@@ -234,6 +249,7 @@ def _show_general_help():
     print(f"  {'get <key>':24} Display a configuration value")
     print(f"  {'keys':24} List all configuration keys")
     print(f"  {'help [command]':24} Show this help")
+    print(f"  {'help-basics':24} Show framework usage basics")
 
     # User commands
     commands = app["commands"]
@@ -260,6 +276,69 @@ def _show_general_help():
                 print(f"  {opt_key:24} {short} (default: {default!r})")
             else:
                 print(f"  {opt_key:24} (default: {default!r})")
+
+
+# =============================================================================
+# help-basics command
+# =============================================================================
+
+def cmd_help_basics():
+    """
+    Show framework-oriented lionscliapp usage basics.
+
+    This is intentionally separate from normal app help so hosted
+    applications can keep their own command help focused on app-specific
+    behavior while still exposing framework concepts when needed.
+    """
+    print("lionscliapp basics")
+    print()
+    print("This command explains framework behavior shared by applications")
+    print("hosted by lionscliapp.")
+    print()
+    print("Execution root vs project directory:")
+    print("  --execroot <path>")
+    print("      Sets the execution root for this invocation.")
+    print("      execpath.* keys resolve relative to this directory.")
+    print()
+    print("  --project-dir <name>")
+    print("      Sets the per-app project directory name for this invocation.")
+    print("      This must be a directory name, not a full path.")
+    print("      projpath.* keys resolve relative to this directory.")
+    print()
+    print("Together, these usually determine where config.json lives:")
+    print("  <execroot>/<project-dir>/config.json")
+    print()
+    print("Configuration layering:")
+    print("  1. Declared defaults")
+    print("  2. Stored config.json values")
+    print("  3. --options-file JSON overrides")
+    print("  4. --key value CLI overrides")
+    print("  Later layers override earlier ones for the current run.")
+    print()
+    print("Framework options:")
+    print("  --options-file <path>")
+    print("      Loads a JSON file with an 'options' object.")
+    print()
+    print("Built-in commands:")
+    print("  set <key> <value>    Persist a config value")
+    print("  get <key>            Show default, stored, and current value")
+    print("  keys                 List declared configuration keys")
+    print("  help [command]       Show app and command help")
+    print("  help-basics          Show this framework help")
+    print()
+    print("Special key namespaces:")
+    print("  execpath.*       Path resolved relative to execroot")
+    print("  projpath.*       Path resolved relative to project directory")
+    print("  path.*           Deprecated alias for execpath.*")
+    print("  json.indent.*    Controls write_json indentation")
+    print()
+    print("Notes:")
+    print("  CLI values are strings unless lionscliapp has a special coercion")
+    print("  rule for that namespace.")
+    print("  Bare invocation uses the app's default command if one is declared;")
+    print("  otherwise the normal help output is shown.")
+    print()
+    print("Use 'help' for the hosted app's commands and options.")
 
 
 # =============================================================================

@@ -29,6 +29,7 @@ import lionscliapp as app
   - [`get <key>`](#get-key)
   - [`keys`](#keys)
   - [`help [command]`](#help-command)
+  - [`help-basics`](#help-basics)
 - [CLI Global Options](#cli-global-options)
   - [`--<key> <value>`](#--key-value)
   - [`--options-file <path>`](#--options-file-path)
@@ -73,7 +74,7 @@ Many useful command-line tools need memory — configuration, stored data, and p
 
 **JSON is native.** The framework is built on the idea that JSON files are a good communication format between programs — readable, diffable, inspectable. Reading a named JSON input and writing a named JSON output requires no `import json`, no open/close, no path construction. Just `app.read_json("input")` and `app.write_json("output", data)`.
 
-**Built-in commands.** `set`, `get`, `keys`, and `help` are always available without any work on your part.
+**Built-in commands.** `set`, `get`, `keys`, `help`, and `help-basics` are always available without any work on your part.
 
 ### What It Doesn't Do
 
@@ -361,6 +362,22 @@ Show application help. Without an argument, lists all commands and options. With
 ```bash
 mytool help
 mytool help process
+```
+
+### `help-basics`
+
+Show framework-oriented help for `lionscliapp` itself rather than the hosted application's specific commands.
+
+This includes things like:
+
+- what `--execroot` changes
+- what `--project-dir` changes
+- how configuration layering works
+- what the built-in commands are
+- what special key namespaces such as `execpath.*`, `projpath.*`, and `json.indent.*` mean
+
+```bash
+mytool help-basics
 ```
 
 ---

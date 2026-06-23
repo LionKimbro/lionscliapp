@@ -40,6 +40,10 @@ def test_is_builtin_help():
     assert is_builtin("help") is True
 
 
+def test_is_builtin_help_basics():
+    assert is_builtin("help-basics") is True
+
+
 def test_is_builtin_unknown():
     assert is_builtin("build") is False
     assert is_builtin("run") is False
@@ -47,7 +51,7 @@ def test_is_builtin_unknown():
 
 
 def test_builtin_commands_constant():
-    assert BUILTIN_COMMANDS == {"set", "get", "help", "keys"}
+    assert BUILTIN_COMMANDS == {"set", "get", "help", "help-basics", "keys"}
 
 
 # =============================================================================
@@ -308,6 +312,24 @@ def test_cmd_help_builtin_get(tmp_path, monkeypatch, capsys):
     assert "Display" in captured.out
 
 
+def test_cmd_help_builtin_help_basics(tmp_path, monkeypatch, capsys):
+    """help help-basics shows help-basics command help."""
+    monkeypatch.chdir(tmp_path)
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+
+    _simulate_startup(tmp_path)
+
+    cli_state.g["command_help"] = "help-basics"
+
+    cmd_help()
+
+    captured = capsys.readouterr()
+    assert "help-basics" in captured.out
+    assert "framework-oriented" in captured.out
+
+
 def test_cmd_help_user_command(tmp_path, monkeypatch, capsys):
     """help <user-command> shows user command help."""
     monkeypatch.chdir(tmp_path)
@@ -401,6 +423,7 @@ def test_main_help_command(tmp_path, monkeypatch, capsys):
     assert "My application" in captured.out
     assert "set" in captured.out
     assert "get" in captured.out
+    assert "help-basics" in captured.out
 
 
 def test_main_help_specific_command(tmp_path, monkeypatch, capsys):
@@ -415,6 +438,23 @@ def test_main_help_specific_command(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert "set <key> <value>" in captured.out
+
+
+def test_main_help_basics_command(tmp_path, monkeypatch, capsys):
+    """main() dispatches to help-basics."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp", "help-basics"])
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+
+    app.main()
+
+    captured = capsys.readouterr()
+    assert "lionscliapp basics" in captured.out
+    assert "--execroot" in captured.out
+    assert "--project-dir" in captured.out
+    assert "--options-file" in captured.out
 
 
 def test_builtin_takes_precedence_over_user_command(tmp_path, monkeypatch, capsys):
