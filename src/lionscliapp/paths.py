@@ -64,6 +64,26 @@ def get_lock_path():
     return get_project_root() / "lock.json"
 
 
+def get_instance_path():
+    """
+    Return the absolute path to the project's instance.json file.
+
+    This file is used by the Tkinter single-instance subsystem to track
+    the active GUI owner.
+    """
+    return get_project_root() / "instance.json"
+
+
+def get_inbox_path():
+    """
+    Return the absolute path to the project's inbox/ directory.
+
+    This directory acts as a FileTalk-style mailbox for JSON messages
+    destined for the active instance.
+    """
+    return get_project_root() / "inbox"
+
+
 def ensure_project_root_exists():
     """
     Create the project directory if it does not exist.

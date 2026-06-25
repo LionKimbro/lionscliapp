@@ -61,7 +61,8 @@ def reset_application():
             "search_upwards_for_project_dir": False,
             "allow_execroot_override": True,
             "allow_projectdir_override": True,
-            "uses_locking": False
+            "uses_locking": False,
+            "uses_tkinter": False
         },
         "options": {},
         "commands": {}
@@ -107,6 +108,7 @@ def validate_application():
     _validate_flags()
     _validate_options()
     _validate_commands()
+    _validate_command_flag_consistency()
     _check_no_callables_outside_commands()
 
     if _errors:
@@ -291,6 +293,37 @@ def _check_json_serializable(value, path):
         f"{path}: value {value!r} is not JSON-serializable "
         f"(type: {type(value).__name__})"
     )
+
+
+def _validate_command_flag_consistency():
+    """
+    Validate semantic relationships between application flags and command flags.
+
+    Rules:
+    - single_instance=True requires tkinter=True on the same command
+    - tkinter=True on any command requires application.flags.uses_tkinter=True
+    """
+    uses_tkinter = application["flags"].get("uses_tkinter", False)
+
+    for cmd_name, cmd_schema in application["commands"].items():
+        flags = cmd_schema.get("flags")
+        if not isinstance(flags, dict):
+            continue
+
+        is_tkinter = flags.get("tkinter", False)
+        is_single_instance = flags.get("single_instance", False)
+
+        if is_single_instance and not is_tkinter:
+            _errors.append(
+                f"commands.{cmd_name}.flags.single_instance: may be true only "
+                f"when commands.{cmd_name}.flags.tkinter is also true"
+            )
+
+        if is_tkinter and not uses_tkinter:
+            _errors.append(
+                f"commands.{cmd_name}.flags.tkinter: may be true only when "
+                f"application.flags.uses_tkinter is also true"
+            )
 
 
 def _check_no_callables_outside_commands():

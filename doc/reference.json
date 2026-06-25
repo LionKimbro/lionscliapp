@@ -25,7 +25,8 @@
     "Multiple commands: bind sub-commands with declare_cmd; declare a default (no-command) handler for bare invocation.",
     "Paths are native: any key prefixed with 'path.' is automatically converted to a pathlib.Path (expanded, resolved). read_json/write_json take path names directly.",
     "JSON is native: read_json('input') and write_json('output', data) require no import json, no open/close, no path construction.",
-    "Built-in commands: set, get, keys, help, and help-basics are always available without any work. If uses_locking is enabled, unlock is also available."
+    "Built-in commands: set, get, keys, help, and help-basics are always available without any work. If uses_locking is enabled, unlock is also available.",
+    "Optional Tkinter runtime support: commands can use single-instance GUI ownership via instance.json plus a generic FileTalk-style inbox/ mailbox."
   ],
   "what_it_does_not_do": [
     "No automatic type coercion for general keys (except path.* and json.indent.*). All other values are strings.",
@@ -243,7 +244,7 @@
       {
         "name": "set_cmd_flag",
         "signature": "set_cmd_flag(name, flag_name, value)",
-        "description": "Set a boolean flag on a specific command. This is used for command-level framework behavior such as locking.",
+        "description": "Set a boolean flag on a specific command. This is used for command-level framework behavior such as locking or Tkinter single-instance behavior.",
         "parameters": {
           "name": "Command name string",
           "flag_name": "Flag name string (e.g. \"locking\")",
@@ -252,7 +253,9 @@
         "raises": "ValueError if value is not a bool",
         "example": "app.set_cmd_flag('sync', 'locking', True)",
         "known_flags": {
-          "locking": "bool, default False. If True, the command acquires lock.json before execution and releases it afterward."
+          "locking": "bool, default False. If True, the command acquires lock.json before execution and releases it afterward.",
+          "tkinter": "bool, default False. Marks the command as a Tk runtime command.",
+          "single_instance": "bool, default False. For Tk commands, later invocations summon the existing instance instead of launching another one."
         }
       },
       {
@@ -284,12 +287,13 @@
           "value": "Boolean value to assign"
         },
         "raises": "ValueError if value is not a bool",
-        "example": "app.set_flag(\"allow_projectdir_override\", True)\napp.set_flag(\"search_upwards_for_project_dir\", True)\napp.set_flag(\"uses_locking\", True)",
+        "example": "app.set_flag(\"allow_projectdir_override\", True)\napp.set_flag(\"search_upwards_for_project_dir\", True)\napp.set_flag(\"uses_locking\", True)\napp.set_flag(\"uses_tkinter\", True)",
         "known_flags": {
           "search_upwards_for_project_dir": "bool, default False. Walk up directory tree to find project dir.",
           "allow_execroot_override": "bool, default True. Accept --execroot CLI option.",
           "allow_projectdir_override": "bool, default True. Accept --project-dir CLI option.",
-          "uses_locking": "bool, default False. Enable the locking subsystem and the built-in unlock command."
+          "uses_locking": "bool, default False. Enable the locking subsystem and the built-in unlock command.",
+          "uses_tkinter": "bool, default False. Enable the optional Tkinter single-instance runtime subsystem."
         }
       },
       {
@@ -312,7 +316,8 @@
             "search_upwards_for_project_dir": "bool",
             "allow_execroot_override": "bool",
             "allow_projectdir_override": "bool",
-            "uses_locking": "bool"
+            "uses_locking": "bool",
+            "uses_tkinter": "bool"
           },
           "options": {
             "<key>": {
@@ -327,7 +332,9 @@
               "short": "str or null",
               "long": "str or null",
               "flags": {
-                "locking": "bool"
+                "locking": "bool",
+                "tkinter": "bool",
+                "single_instance": "bool"
               }
             }
           }
@@ -347,6 +354,7 @@
         "Load config.json",
         "Load options file if --options-file given",
         "Build app.ctx by merging all layers and coercing path.* keys",
+        "Resolve Tkinter single-instance behavior for Tk commands, including summon/inbox policy when configured",
         "Acquire lock.json if the selected command has locking=True",
         "Dispatch to appropriate command"
       ],
@@ -420,6 +428,47 @@
         "example": "phase = app.get_phase()"
       }
     },
+    "tkinter_runtime": {
+      "attach_tk": {
+        "signature": "attach_tk(root, message_handler=None)",
+        "description": "Attach the Tk runtime to a live Tk root-like object and schedule inbox polling on the Tk event loop."
+      },
+      "send_message": {
+        "signature": "send_message(message) -> pathlib.Path",
+        "description": "Write a generic JSON message into <project_dir>/inbox/. The mailbox is generic; summon is only one message type among others."
+      },
+      "consume_messages": {
+        "signature": "consume_messages() -> list[dict]",
+        "description": "Read and delete complete JSON messages from inbox/. Invalid or incomplete files are left in place for later retry."
+      },
+      "poll_inbox_once": {
+        "signature": "poll_inbox_once() -> None",
+        "description": "Consume inbox messages once and dispatch them through the attached Tk root and message handler."
+      },
+      "publish_instance_metadata": {
+        "signature": "publish_instance_metadata(updates) -> None",
+        "description": "Merge additional metadata into the owned instance.json record."
+      },
+      "bring_window_to_front": {
+        "signature": "bring_window_to_front(root) -> None",
+        "description": "Best-effort foregrounding helper for Tk windows using Tk behaviors such as deiconify, lift, and focus_force."
+      },
+      "build_tkintertester_flags": {
+        "signature": "build_tkintertester_flags() -> str",
+        "description": "Translate runtime.tests.show/exit keys into tkintertester harness flags."
+      },
+      "tests_enabled": {
+        "signature": "tests_enabled() -> bool",
+        "description": "Return True when runtime.tests.enabled is configured truthy."
+      },
+      "runtime_keys": {
+        "runtime.gui.inbox.poll_ms": "Mailbox poll interval in milliseconds. Default 1000.",
+        "runtime.tests.enabled": "Enable Tk runtime test mode behaviors.",
+        "runtime.tests.isolated": "Must be truthy for Tk test runs; prevents accidental testing against a live data environment.",
+        "runtime.tests.show": "Translate to tkintertester 's' flag.",
+        "runtime.tests.exit": "Translate to tkintertester 'x' flag."
+      }
+    },
     "testing_and_repl": {
       "reset": {
         "signature": "reset()",
@@ -455,6 +504,16 @@
       "default": true,
       "meaning": "When True, the --project-dir CLI option is accepted, allowing callers to override the project directory name for a single invocation. Value must be a plain directory name with no path separators.",
       "how_to_set": "app.set_flag(\"allow_projectdir_override\", False)"
+    },
+    "uses_locking": {
+      "default": false,
+      "meaning": "Enable framework-managed command locking and the built-in unlock command.",
+      "how_to_set": "app.set_flag(\"uses_locking\", True)"
+    },
+    "uses_tkinter": {
+      "default": false,
+      "meaning": "Enable the optional Tkinter single-instance runtime subsystem with instance.json ownership and inbox/ messaging.",
+      "how_to_set": "app.set_flag(\"uses_tkinter\", True)"
     }
   },
   "minimal_complete_example": {

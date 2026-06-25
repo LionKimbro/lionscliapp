@@ -31,6 +31,7 @@ def test_reset_application_sets_default_flags():
     assert flags["allow_execroot_override"] is True
     assert flags["allow_projectdir_override"] is True
     assert flags["uses_locking"] is False
+    assert flags["uses_tkinter"] is False
 
 
 def test_reset_application_skeleton_requires_project_dir():
@@ -144,7 +145,7 @@ def test_validate_application_accepts_valid_commands():
         "fn": my_cmd,
         "short": "Run the thing",
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
     }
 
     appmodel.validate_application()  # Should not raise
@@ -158,7 +159,7 @@ def test_validate_application_accepts_null_command_fn():
         "fn": None,
         "short": "Run the thing",
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
     }
 
     appmodel.validate_application()  # Should not raise
@@ -170,7 +171,7 @@ def test_validate_application_catches_missing_command_fn():
     appmodel.application["commands"]["run"] = {
         "short": "Run the thing",
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
         # Missing "fn"
     }
 
@@ -185,7 +186,7 @@ def test_validate_application_catches_invalid_command_fn():
         "fn": "not callable",
         "short": None,
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
     }
 
     with pytest.raises(ValueError, match="commands.run.fn: must be null or callable"):
@@ -224,7 +225,7 @@ def test_validate_application_catches_callable_in_command_short():
         "fn": my_cmd,
         "short": lambda: "bad",  # Callable not allowed here
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
     }
 
     with pytest.raises(ValueError, match="contains callable"):
@@ -262,7 +263,7 @@ def test_reset_application_clears_previous_state():
         "fn": lambda: None,
         "short": None,
         "long": None,
-        "flags": {"locking": False}
+        "flags": {"locking": False, "tkinter": False, "single_instance": False}
     }
 
     appmodel.reset_application()
@@ -281,7 +282,8 @@ def test_reset_application_clears_previous_state():
             "search_upwards_for_project_dir": False,
             "allow_execroot_override": True,
             "allow_projectdir_override": True,
-            "uses_locking": False
+            "uses_locking": False,
+            "uses_tkinter": False
         },
         "options": {},
         "commands": {}
@@ -404,8 +406,40 @@ def test_validate_application_catches_non_boolean_command_flag():
         "fn": None,
         "short": "Run the thing",
         "long": None,
-        "flags": {"locking": "yes"}
+        "flags": {"locking": "yes", "tkinter": False, "single_instance": False}
     }
 
     with pytest.raises(ValueError, match="commands.run.flags.locking: must be a boolean"):
+        appmodel.validate_application()
+
+
+def test_validate_application_rejects_single_instance_without_tkinter():
+    """single_instance=True requires tkinter=True on the same command."""
+    appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
+    appmodel.application["flags"]["uses_tkinter"] = True
+    appmodel.application["commands"]["ui"] = {
+        "fn": None,
+        "short": "Open UI",
+        "long": None,
+        "flags": {"locking": False, "tkinter": False, "single_instance": True}
+    }
+
+    with pytest.raises(ValueError, match="single_instance: may be true only when .*tkinter is also true"):
+        appmodel.validate_application()
+
+
+def test_validate_application_rejects_tkinter_command_when_app_does_not_use_tkinter():
+    """tkinter=True requires application.flags.uses_tkinter=True."""
+    appmodel.reset_application()
+    appmodel.application["names"]["project_dir"] = ".myapp"
+    appmodel.application["flags"]["uses_tkinter"] = False
+    appmodel.application["commands"]["ui"] = {
+        "fn": None,
+        "short": "Open UI",
+        "long": None,
+        "flags": {"locking": False, "tkinter": True, "single_instance": False}
+    }
+
+    with pytest.raises(ValueError, match="flags.tkinter: may be true only when application.flags.uses_tkinter is also true"):
         appmodel.validate_application()

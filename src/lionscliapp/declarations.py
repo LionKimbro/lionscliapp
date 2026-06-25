@@ -21,6 +21,13 @@ from lionscliapp.runtime_state import require_declaring_phase
 from lionscliapp.application import application
 
 
+DEFAULT_COMMAND_FLAGS = {
+    "locking": False,
+    "tkinter": False,
+    "single_instance": False,
+}
+
+
 def declare_app(name, version):
     """
     Declare the name and version of the application.
@@ -77,9 +84,7 @@ def declare_cmd(name, fn):
             "fn": None,
             "short": None,
             "long": None,
-            "flags": {
-                "locking": False
-            }
+            "flags": DEFAULT_COMMAND_FLAGS.copy()
         }
     application["commands"][name]["fn"] = fn
 
@@ -101,9 +106,7 @@ def describe_cmd(name, description, flags=""):
             "fn": None,
             "short": None,
             "long": None,
-            "flags": {
-                "locking": False
-            }
+            "flags": DEFAULT_COMMAND_FLAGS.copy()
         }
     if "l" in flags:
         application["commands"][name]["long"] = description
@@ -135,13 +138,11 @@ def set_cmd_flag(name, flag_name, value):
             "fn": None,
             "short": None,
             "long": None,
-            "flags": {
-                "locking": False
-            }
+            "flags": DEFAULT_COMMAND_FLAGS.copy()
         }
 
     if "flags" not in application["commands"][name]:
-        application["commands"][name]["flags"] = {"locking": False}
+        application["commands"][name]["flags"] = DEFAULT_COMMAND_FLAGS.copy()
 
     application["commands"][name]["flags"][flag_name] = value
 

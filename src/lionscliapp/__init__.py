@@ -16,6 +16,7 @@ from lionscliapp import ctx as ctx_module
 from lionscliapp import dispatch
 from lionscliapp import builtins
 from lionscliapp import locking
+from lionscliapp import tkruntime
 
 from lionscliapp.ctx import ctx
 
@@ -24,6 +25,17 @@ from lionscliapp.entrypoint import main, StartupError
 from lionscliapp.dispatch import DispatchError
 from lionscliapp.paths import get_path
 from lionscliapp.json_io import read_json, write_json
+from lionscliapp.tkruntime import (
+    attach_tk,
+    detach_tk,
+    publish_instance_metadata,
+    send_message,
+    consume_messages,
+    poll_inbox_once,
+    bring_window_to_front,
+    build_tkintertester_flags,
+    tests_enabled,
+)
 from lionscliapp.declarations import (
     declare_app,
     describe_app,
@@ -54,4 +66,5 @@ def reset():
     override_inputs.reset_override_inputs()
     ctx_module.reset_ctx()
     locking.reset_locking()
+    tkruntime.reset_tk_runtime()
 

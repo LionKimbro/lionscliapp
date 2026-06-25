@@ -1,5 +1,6 @@
 """Tests for lionscliapp.entrypoint module."""
 
+import os
 import sys
 import pytest
 import lionscliapp as app
@@ -186,6 +187,84 @@ def test_main_exits_code_1_on_coercion_error(tmp_path, monkeypatch):
     declarations.declare_projectdir(".myapp")
     declarations.declare_key("json.indent.foo", 2)
     declarations.declare_cmd("run", my_cmd)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_tk_command_summons_existing_instance(tmp_path, monkeypatch):
+    """main() summons an existing Tk instance instead of dispatching."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["myapp", "ui"])
+
+    project_dir = tmp_path / ".myapp"
+    project_dir.mkdir()
+    instance_path = project_dir / "instance.json"
+    instance_path.write_text(
+        '{"instance_id":"owner-1","command":"ui","pid":'
+        f'{os.getpid()},"created_at":"2026-06-24T00:00:00Z","window_handle":456}}',
+        encoding="utf-8",
+    )
+
+    called = []
+
+    def ui_cmd():
+        called.append("ran")
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.set_flag("uses_tkinter", True)
+    declarations.declare_cmd("ui", ui_cmd)
+    declarations.set_cmd_flag("ui", "tkinter", True)
+    declarations.set_cmd_flag("ui", "single_instance", True)
+
+    main()
+
+    assert called == []
+    inbox_files = list((project_dir / "inbox").glob("*.json"))
+    assert len(inbox_files) == 1
+
+
+def test_main_tk_test_mode_requires_isolation(tmp_path, monkeypatch):
+    """main() refuses Tk test mode without explicit isolation safeguards."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["myapp", "--runtime.tests.enabled", "true", "ui"],
+    )
+
+    def ui_cmd():
+        pass
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.set_flag("uses_tkinter", True)
+    declarations.declare_key("runtime.tests.enabled", "false")
+    declarations.declare_key("runtime.tests.isolated", "false")
+    declarations.declare_cmd("ui", ui_cmd)
+    declarations.set_cmd_flag("ui", "tkinter", True)
+    declarations.set_cmd_flag("ui", "single_instance", True)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+
+
+def test_main_exits_code_1_on_invalid_tk_command_flag_combination(monkeypatch):
+    """main() exits with code 1 on invalid Tk command/app flag combinations."""
+    monkeypatch.setattr(sys, "argv", ["myapp", "ui"])
+
+    def ui_cmd():
+        pass
+
+    declarations.declare_app("myapp", "1.0")
+    declarations.declare_projectdir(".myapp")
+    declarations.declare_cmd("ui", ui_cmd)
+    declarations.set_cmd_flag("ui", "tkinter", True)
 
     with pytest.raises(SystemExit) as exc_info:
         main()

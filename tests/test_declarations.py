@@ -77,6 +77,8 @@ def test_declare_cmd_creates_command_entry():
     assert "short" in appmodel.application["commands"]["run"]
     assert "long" in appmodel.application["commands"]["run"]
     assert appmodel.application["commands"]["run"]["flags"]["locking"] is False
+    assert appmodel.application["commands"]["run"]["flags"]["tkinter"] is False
+    assert appmodel.application["commands"]["run"]["flags"]["single_instance"] is False
 
 
 def test_declare_cmd_binds_fn_to_existing_entry():
@@ -113,6 +115,8 @@ def test_describe_cmd_creates_entry_with_required_keys():
     assert "fn" in appmodel.application["commands"]["build"]
     assert "long" in appmodel.application["commands"]["build"]
     assert appmodel.application["commands"]["build"]["flags"]["locking"] is False
+    assert appmodel.application["commands"]["build"]["flags"]["tkinter"] is False
+    assert appmodel.application["commands"]["build"]["flags"]["single_instance"] is False
 
 
 def test_describe_cmd_sets_long_with_l_flag():
@@ -148,6 +152,15 @@ def test_set_cmd_flag_rejects_non_boolean_values():
     """set_cmd_flag() rejects non-bool values."""
     with pytest.raises(ValueError, match="must be a bool"):
         declarations.set_cmd_flag("build", "locking", "yes")
+
+
+def test_set_cmd_flag_sets_tkinter_flags():
+    """set_cmd_flag() supports tkinter runtime flags."""
+    declarations.set_cmd_flag("ui", "tkinter", True)
+    declarations.set_cmd_flag("ui", "single_instance", True)
+
+    assert appmodel.application["commands"]["ui"]["flags"]["tkinter"] is True
+    assert appmodel.application["commands"]["ui"]["flags"]["single_instance"] is True
 
 
 # --- declare_key tests ---

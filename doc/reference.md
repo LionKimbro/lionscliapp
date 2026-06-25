@@ -37,6 +37,7 @@ import lionscliapp as app
   - [`--project-dir <name>`](#--project-dir-name)
 - [Path Resolution](#path-resolution)
 - [JSON I/O](#json-io)
+- [Tkinter Runtime](#tkinter-runtime)
 - [Lifecycle Phases](#lifecycle-phases)
 - [Complete Function Reference](#complete-function-reference)
   - [Declaration Functions](#declaration-functions)
@@ -50,6 +51,8 @@ import lionscliapp as app
   - [`search_upwards_for_project_dir`](#search_upwards_for_project_dir)
   - [`allow_execroot_override`](#allow_execroot_override)
   - [`allow_projectdir_override`](#allow_projectdir_override)
+  - [`uses_locking`](#uses_locking)
+  - [`uses_tkinter`](#uses_tkinter)
 
 ---
 
@@ -75,6 +78,8 @@ Many useful command-line tools need memory — configuration, stored data, and p
 **JSON is native.** The framework is built on the idea that JSON files are a good communication format between programs — readable, diffable, inspectable. Reading a named JSON input and writing a named JSON output requires no `import json`, no open/close, no path construction. Just `app.read_json("input")` and `app.write_json("output", data)`.
 
 **Built-in commands.** `set`, `get`, `keys`, `help`, and `help-basics` are always available without any work on your part. If the application enables locking with `app.set_flag("uses_locking", True)`, the built-in `unlock` command is also available.
+
+**Optional Tkinter runtime support.** If the application enables Tk support with `app.set_flag("uses_tkinter", True)`, selected commands can behave as single-instance GUI commands. A later invocation writes a generic JSON message into the app's `inbox/` directory and summons the existing window instead of launching another GUI against the same data.
 
 ### What It Doesn't Do
 
@@ -527,6 +532,109 @@ def my_cmd():
 
 ---
 
+## Tkinter Runtime
+
+The Tkinter runtime subsystem is optional. It is for GUI commands that should behave as single-instance applications while still using normal `lionscliapp` argument parsing, project-dir handling, and command dispatch.
+
+When enabled:
+
+- the live GUI owner is tracked in `<project_dir>/instance.json`
+- a generic FileTalk-style mailbox lives in `<project_dir>/inbox/`
+- later invocations of a `single_instance` Tk command write a JSON message into `inbox/` and return successfully instead of launching another GUI
+- the live GUI process polls `inbox/` on the Tk event loop and can react to any message type, not just `summon`
+
+Recommended declaration pattern:
+
+```python
+app.set_flag("uses_tkinter", True)
+app.declare_cmd("", cmd_ui)
+app.set_cmd_flag("", "tkinter", True)
+app.set_cmd_flag("", "single_instance", True)
+
+app.declare_key("runtime.gui.inbox.poll_ms", "1000")
+app.declare_key("runtime.tests.enabled", "false")
+app.declare_key("runtime.tests.isolated", "false")
+```
+
+### `app.attach_tk(root, message_handler=None)`
+
+Attach the Tk runtime to a live Tk root-like object.
+
+```python
+def cmd_ui():
+    root = tkinter.Tk()
+    app.attach_tk(root, handle_runtime_message)
+    root.mainloop()
+```
+
+This schedules recurring inbox polling via `root.after(...)`.
+
+### `app.send_message(message)`
+
+Write a generic JSON message into `<project_dir>/inbox/`.
+
+```python
+app.send_message({
+    "type": "reload-data",
+    "created": "2026-06-24T12:00:00Z"
+})
+```
+
+The mailbox is generic. `summon` is only one message type among others.
+
+### `app.consume_messages()` and `app.poll_inbox_once()`
+
+`consume_messages()` reads and deletes complete JSON messages from `inbox/`.
+`poll_inbox_once()` does one consume-and-dispatch pass using the currently attached Tk root and message handler.
+
+Incomplete or invalid JSON files are left in place and retried on a later poll, in the FileTalk style.
+
+### `app.publish_instance_metadata(updates)`
+
+Merge additional metadata into the owned `instance.json` record.
+
+This is useful for publishing app-specific state such as a current folder, document id, or selected record.
+
+### `app.bring_window_to_front(root)`
+
+Best-effort foregrounding helper for Tk windows using Tk behaviors such as `deiconify()`, `lift()`, and `focus_force()`.
+
+### `app.build_tkintertester_flags()` and `app.tests_enabled()`
+
+Translate standard runtime test keys into `tkintertester` harness flags.
+
+```python
+flags = app.build_tkintertester_flags()
+if app.tests_enabled():
+    register_tests()
+    harness.run_host(app_entry, flags)
+```
+
+Recognized keys:
+
+- `runtime.tests.enabled`
+- `runtime.tests.show`
+- `runtime.tests.exit`
+
+### Tk test safety
+
+For Tk commands, if `runtime.tests.enabled` is truthy, the framework refuses to run unless both of these are true:
+
+- `runtime.tests.isolated` is truthy
+- `--project-dir` override is supplied
+
+This is an intentional safety barrier against accidentally running GUI tests against a live data environment.
+
+### Poll interval
+
+Mailbox polling defaults to `1000` milliseconds. You can override it with:
+
+```python
+app.declare_key("runtime.gui.inbox.poll_ms", "800")
+```
+
+---
+
 ## Lifecycle Phases
 
 The framework moves through three phases in order. Understanding them helps make sense of error messages.
@@ -646,6 +754,8 @@ app.set_cmd_flag("sync", "locking", True)
 Known command flags:
 
 - `locking` — default `False`. If `True`, the command acquires `lock.json` just before execution and releases it afterward.
+- `tkinter` — default `False`. Marks the command as a Tkinter runtime command.
+- `single_instance` — default `False`. For Tkinter commands, later invocations summon the existing instance instead of launching another one.
 
 Raises `ValueError` if `value` is not a `bool`.
 
@@ -693,6 +803,7 @@ Set an application flag. Flags control framework behaviour such as whether certa
 app.set_flag("allow_projectdir_override", True)
 app.set_flag("search_upwards_for_project_dir", True)
 app.set_flag("uses_locking", True)
+app.set_flag("uses_tkinter", True)
 ```
 
 **Parameters:**
@@ -722,7 +833,8 @@ app.declare({
         "retry.count": {"default": 3}
     },
     "commands": {
-        "work": {"short": "Do the work", "flags": {"locking": True}}
+        "work": {"short": "Do the work", "flags": {"locking": True}},
+        "ui": {"short": "Open the interface", "flags": {"tkinter": True, "single_instance": True}}
     }
 })
 ```
@@ -752,8 +864,9 @@ The framework:
 5. Loads `config.json`
 6. Loads the options file (if `--options-file` was given)
 7. Builds `app.ctx` by merging all layers (coercing `path.*` keys to `pathlib.Path`)
-8. If needed, acquires `lock.json` for a lock-requiring command
-9. Dispatches to the appropriate command
+8. If needed, resolves Tkinter single-instance behavior for a Tk command
+9. If needed, acquires `lock.json` for a lock-requiring command
+10. Dispatches to the appropriate command
 
 **Exit codes:**
 
@@ -959,4 +1072,23 @@ When enabled:
 - the file is removed after successful completion or after an uncaught command exception
 - a stale lock can be cleared with the built-in `unlock` command
 
-Default: `True`.
+Default: `False`.
+
+### `uses_tkinter`
+
+Enable the optional Tkinter single-instance runtime subsystem.
+
+```python
+app.set_flag("uses_tkinter", True)
+app.set_cmd_flag("ui", "tkinter", True)
+app.set_cmd_flag("ui", "single_instance", True)
+```
+
+When enabled:
+
+- commands marked with `tkinter=True` are treated as Tk runtime commands
+- commands also marked with `single_instance=True` use `instance.json` ownership and `inbox/` messaging
+- later invocations summon the existing instance instead of launching another GUI
+- the live instance can receive any JSON messages through the generic FileTalk-style mailbox
+
+Default: `False`.

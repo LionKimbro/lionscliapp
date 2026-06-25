@@ -12,6 +12,7 @@
 - **Paths are native** — Any key prefixed with `path.` becomes a `pathlib.Path`, expanded and resolved automatically.
 - **JSON is native** — `read_json()` and `write_json()` handle path resolution and formatting. Reading or writing a named JSON file is a one-liner.
 - **Built-in commands** — `set`, `get`, `keys`, `help`, and `help-basics` are always available for free. If locking is enabled, `unlock` is available too.
+- **Optional Tkinter runtime** — Tk commands can act as single-instance GUI commands with `instance.json` ownership, a generic FileTalk-style `inbox/` mailbox, and summon-existing-window behavior.
 
 ## What It Doesn't Do
 
@@ -48,6 +49,12 @@ app.describe_cmd("run", "Run the main process")
 # Optional: enable locking for state-mutating commands
 # app.set_flag("uses_locking", True)
 # app.set_cmd_flag("run", "locking", True)
+
+# Optional: enable Tk single-instance behavior for GUI commands
+# app.set_flag("uses_tkinter", True)
+# app.set_cmd_flag("run", "tkinter", True)
+# app.set_cmd_flag("run", "single_instance", True)
+# app.declare_key("runtime.gui.inbox.poll_ms", "1000")
 
 app.main()
 ```
